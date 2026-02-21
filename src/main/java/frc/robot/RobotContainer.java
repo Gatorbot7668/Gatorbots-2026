@@ -64,14 +64,16 @@ public class RobotContainer
     Command driveFieldOrientedAnglularVelocity = m_drivebase.driveCommand(
         () -> MathUtil.applyDeadband(m_driverXbox.getLeftY() * -1, OperatorConstants.LEFT_Y_DEADBAND),
         () -> MathUtil.applyDeadband(m_driverXbox.getLeftX() * -1, OperatorConstants.LEFT_X_DEADBAND),
-        () -> MathUtil.applyDeadband(m_driverXbox.getRightX() * -1, OperatorConstants.RIGHT_X_DEADBAND)
+        () -> MathUtil.applyDeadband(m_driverXbox.getRightX() * -1, OperatorConstants.RIGHT_X_DEADBAND),
+        () -> false
     );
 
     // Robot-oriented drive (left bumper)
     Command driveRobotOriented = m_drivebase.driveCommand(
         () -> MathUtil.applyDeadband(m_driverXbox.getLeftY() * -1, OperatorConstants.LEFT_Y_DEADBAND),
         () -> MathUtil.applyDeadband(m_driverXbox.getLeftX() * -1, OperatorConstants.LEFT_X_DEADBAND),
-        () -> MathUtil.applyDeadband(m_driverXbox.getRightX() * -1, OperatorConstants.RIGHT_X_DEADBAND)
+        () -> MathUtil.applyDeadband(m_driverXbox.getRightX() * -1, OperatorConstants.RIGHT_X_DEADBAND),
+        () -> false
     );
     addCommandToDashboard(driveRobotOriented);
 
