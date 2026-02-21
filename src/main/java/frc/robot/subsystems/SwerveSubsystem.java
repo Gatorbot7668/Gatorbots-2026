@@ -9,7 +9,6 @@ import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import com.pathplanner.lib.path.PathConstraints;
 import com.pathplanner.lib.util.FlippingUtil;
-//import com.revrobotics.CANSparkMax;
 import com.revrobotics.spark.SparkFlex;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -36,15 +35,11 @@ import java.io.File;
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 
-// import org.photonvision.PhotonCamera;
-// import org.photonvision.targeting.PhotonPipelineResult;
-
 import swervelib.SwerveController;
 import swervelib.SwerveDrive;
 import swervelib.SwerveDriveTest;
 import swervelib.SwerveModule;
 import swervelib.math.SwerveMath;
-//import swervelib.parser.SwerveControllerConfiguration;
 import swervelib.parser.SwerveDriveConfiguration;
 import swervelib.parser.SwerveParser;
 import swervelib.telemetry.SwerveDriveTelemetry;
@@ -68,8 +63,7 @@ import swervelib.telemetry.SwerveDriveTelemetry.TelemetryVerbosity;
 // - the current SwerveSubsystem.sysIdDriveMotorCommand is too high-level, it does all
 //   four routines in a single call, but we migth want to do it by hand for better
 //   safety control (so that the robot does not ram into anything)
-public class SwerveSubsystem extends SubsystemBase
-{
+public class SwerveSubsystem extends SubsystemBase {
   /**
    * Swerve drive object.
    */
@@ -81,28 +75,24 @@ public class SwerveSubsystem extends SubsystemBase
    */
   public SwerveSubsystem(File directory)
   {
-    // Angle conversion factor is 360 / (GEAR RATIO * ENCODER RESOLUTION)
-    // These values came from
-    // https://www.swervedrivespecialties.com/collections/kits/products/mk4i-swerve-module
-    // we have L1 gearing ratio on the drive motor both motors.
-    double angleConversionFactor = SwerveMath.calculateDegreesPerSteeringRotation(26);
-    // Motor conversion factor is (PI * WHEEL DIAMETER IN METERS) / (GEAR RATIO * ENCODER RESOLUTION).
-    //  The encoder resolution per motor revolution is 1 per motor revolution.
-    double driveConversionFactor = SwerveMath.calculateMetersPerRotation(
-      Units.inchesToMeters(4), 8.14);
-
     // Configure the Telemetry before creating the SwerveDrive to avoid unnecessary objects being created.
     SwerveDriveTelemetry.verbosity = TelemetryVerbosity.HIGH;
 
     try {
+
+       // ! CHANGE
+       // ! instead of calculating the conversion ratios, just input the gear ratios
+       // ! of drive and pivot; yasgl will automatically calculate those values internally
       swerveDrive = new SwerveParser(directory).createSwerveDrive(
-        SwerveConstants.kMaxSpeed.in(MetersPerSecond), angleConversionFactor, driveConversionFactor);
-      // Alternative method if conversion factors are supplied via JSON file
-      // swerveDrive = new SwerveParser(directory).createSwerveDrive(maximumSpeed);      
+        SwerveConstants.kMaxSpeed.in(MetersPerSecond));
+
     } catch (Exception e) {
+
       throw new RuntimeException(e);
+
     }
-    swerveDrive.setHeadingCorrection(false); // Heading correction should only be used while controlling the robot via angle.
+
+    swerveDrive.setHeadingCorrection(false); // ! You lowkey don't need this since yasgl has this off by default I think
     swerveDrive.setCosineCompensator(!SwerveDriveTelemetry.isSimulation); // Disables cosine compensation for simulations since it causes discrepancies not seen in real life.
 
     setupPathPlanner();
