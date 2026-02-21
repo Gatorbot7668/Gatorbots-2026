@@ -116,7 +116,7 @@ public class RobotContainer
      * new Pose2d(new Translation2d(1, 1), Rotation2d.fromDegrees(0))))
      * .withName("testDriveToPose");
      */
-    Command testDriveToPose = m_drivebase.driveToRelativePose(
+    Command testDriveToPose = m_drivebase.testDriveToPose(
       new Pose2d(new Translation2d(Meters.of(0), Meters.of(0.1)),
                                    new Rotation2d(Degrees.of(0))))
         /* .asProxy() */.withName("testDriveToPose");

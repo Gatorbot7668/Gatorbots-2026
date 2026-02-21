@@ -4,7 +4,10 @@
 
 package frc.robot.subsystems;
 
+import com.ctre.phoenix6.mechanisms.swerve.LegacySwerveModule.DriveRequestType;
+import com.ctre.phoenix6.swerve.jni.SwerveJNI.DriveState;
 import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.commands.FollowPathCommand;
 import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import com.pathplanner.lib.path.PathConstraints;
@@ -20,6 +23,7 @@ import edu.wpi.first.math.util.Units;
 import edu.wpi.first.util.sendable.Sendable;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -119,27 +123,42 @@ public class SwerveSubsystem extends SubsystemBase {
     addChild(name + " encoder",
       (Sendable) module.getAbsoluteEncoder().getAbsoluteEncoder());
   }
-
-  /**
-   * Construct the swerve drive.
-   *
-   * @param driveCfg      SwerveDriveConfiguration for the swerve.
-   * @param controllerCfg Swerve Controller.
-   */
   
-
+  // ! CHANGE cleaned up method
+  /**
+   * Check if robot alliance is red
+   * 
+   * @return {@link Boolean}
+   */
   public boolean isFieldFlipped() {
     var alliance = DriverStation.getAlliance();
-    return alliance.isPresent() ? alliance.get() == DriverStation.Alliance.Red : false;
+    if (alliance.isPresent()) {
+
+      return alliance.get() == Alliance.Red;
+
+    } else {
+
+      return false; // Default to false if ds has no alliance
+
+    }
   }
+
+  // ! CHANGE cleaned up method
+  /**
+   * Invert {@link Pose2d} if field is flipped
+   * 
+   * @param pose {@link Pose2d} to modify
+   * @return {@link Pose2d}
+   */
   public Pose2d invertIfFieldFlipped(Pose2d pose) {
-    if (isFieldFlipped()) return FlippingUtil.flipFieldPose(pose);
+    if (isFieldFlipped()) {
+      return FlippingUtil.flipFieldPose(pose);
+    }
     return pose;
   }
 
-  /**
-   * Setup AutoBuilder for PathPlanner.
-   */
+  // ! CHANGE cleaned up method
+  /** Setup PathPlanner */
   public void setupPathPlanner()
   {
     try {
@@ -147,8 +166,8 @@ public class SwerveSubsystem extends SubsystemBase {
       AutoBuilder.configure(
           this::getPose, // Robot pose supplier
           this::resetOdometry, // Method to reset odometry (will be called if your auto has a starting pose)
-          this::getRobotVelocity, // ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
-          this::setChassisSpeeds, // Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
+          this::getRobotVelocity, // Robot-Relative ChassisSpeeds supplier
+          this::setChassisSpeeds, // ChassiSpeeds consumer for following paths
           new PPHolonomicDriveController(
               PathPlannerConstants.kTranslationPID, // Translation PID constants
               PathPlannerConstants.kAnglePID // Rotation PID constants
@@ -160,11 +179,19 @@ public class SwerveSubsystem extends SubsystemBase {
           () -> isFieldFlipped(),
           this // Reference to this subsystem to set requirements
       );
+
+      // ! CHANGE
+      // See end of https://pathplanner.dev/pplib-follow-a-single-path.html#java-warmup
+      FollowPathCommand.warmupCommand();
+
     } catch (Exception e) {
+
       throw new RuntimeException("Failed to load PathPlanner config from GUI settings", e);
+
     }
   }
 
+  // ! If you aren't using photonvision, just remove this lmao
   /**
    * Aim the robot at the target returned by PhotonVision.
    *
@@ -189,11 +216,12 @@ public class SwerveSubsystem extends SubsystemBase {
    * Use PathPlanner Path finding to go to a point on the field.
    *
    * @param pose Target {@link Pose2d} to go to.
-   * @return PathFinding command
+   * @return PathFinding {@link Command}
    */
   public Command driveToPose(Pose2d pose)
   {
     // Create the constraints to use while pathfinding
+    // ! These acceleration values are lowkey small, you could definitly go higher
     PathConstraints constraints = new PathConstraints(
         swerveDrive.getMaximumChassisVelocity(), 4.0,
         swerveDrive.getMaximumChassisAngularVelocity(), Units.degreesToRadians(720));
@@ -207,14 +235,18 @@ public class SwerveSubsystem extends SubsystemBase {
     );
   }
 
-  public Command driveToRelativePose(Pose2d pose) {
-    return new WrapperCommand(driveToPose(pose)) {
-      @Override
-      public void initialize() {
-        resetOdometry(new Pose2d(0, 0, new Rotation2d()));
-        super.initialize();
-      }
-    };
+  // ! CHANGE use a command factory instead of that weird command wrapper stuff
+  /**
+   * Use PathPlanner Path finding to go to a point on the field.
+   * 
+   * <p> This command will reset odometry to origin (0, 0) before starting for testing purposes
+   *
+   * @param pose Target {@link Pose2d} to go to.
+   * @return PathFinding {@link Command}
+   */
+  public Command testDriveToPose(Pose2d pose) {
+    return this.runOnce(() -> resetOdometry(new Pose2d()))
+      .andThen(driveToPose(pose));
   }
 
   /**
