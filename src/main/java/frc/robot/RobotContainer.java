@@ -34,10 +34,8 @@ import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Meters;
 
 import java.io.File;
-import java.util.function.DoubleSupplier;
 
 import com.pathplanner.lib.auto.AutoBuilder;
-import com.pathplanner.lib.auto.NamedCommands;
 
 public class RobotContainer
 {
@@ -61,17 +59,19 @@ public class RobotContainer
 
   public RobotContainer() {
     // Field-oriented drive (default)
-    Command driveFieldOrientedAnglularVelocity = m_drivebase.driveCommand(
+    Command driveFieldOrientedAnglularVelocity = m_drivebase.driveRobotRelativeCommand(
         () -> MathUtil.applyDeadband(m_driverXbox.getLeftY() * -1, OperatorConstants.LEFT_Y_DEADBAND),
         () -> MathUtil.applyDeadband(m_driverXbox.getLeftX() * -1, OperatorConstants.LEFT_X_DEADBAND),
-        () -> MathUtil.applyDeadband(m_driverXbox.getRightX() * -1, OperatorConstants.RIGHT_X_DEADBAND)
+        () -> MathUtil.applyDeadband(m_driverXbox.getRightX() * -1, OperatorConstants.RIGHT_X_DEADBAND),
+        () -> false
     );
 
     // Robot-oriented drive (left bumper)
-    Command driveRobotOriented = m_drivebase.driveCommand(
+    Command driveRobotOriented = m_drivebase.driveRobotRelativeCommand(
         () -> MathUtil.applyDeadband(m_driverXbox.getLeftY() * -1, OperatorConstants.LEFT_Y_DEADBAND),
         () -> MathUtil.applyDeadband(m_driverXbox.getLeftX() * -1, OperatorConstants.LEFT_X_DEADBAND),
-        () -> MathUtil.applyDeadband(m_driverXbox.getRightX() * -1, OperatorConstants.RIGHT_X_DEADBAND)
+        () -> MathUtil.applyDeadband(m_driverXbox.getRightX() * -1, OperatorConstants.RIGHT_X_DEADBAND),
+        () -> false
     );
     addCommandToDashboard(driveRobotOriented);
 
@@ -114,7 +114,7 @@ public class RobotContainer
      * new Pose2d(new Translation2d(1, 1), Rotation2d.fromDegrees(0))))
      * .withName("testDriveToPose");
      */
-    Command testDriveToPose = m_drivebase.driveToRelativePose(
+    Command testDriveToPose = m_drivebase.testDriveToPose(
       new Pose2d(new Translation2d(Meters.of(0), Meters.of(0.1)),
                                    new Rotation2d(Degrees.of(0))))
         /* .asProxy() */.withName("testDriveToPose");
