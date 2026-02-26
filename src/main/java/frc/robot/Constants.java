@@ -7,7 +7,9 @@ package frc.robot;
 import edu.wpi.first.units.measure.LinearVelocity;
 
 import static edu.wpi.first.units.Units.Degrees;
+import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.Kilograms;
+import static edu.wpi.first.units.Units.Meters;
 import static edu.wpi.first.units.Units.MetersPerSecond;
 import static edu.wpi.first.units.Units.Milliseconds;
 import static edu.wpi.first.units.Units.Pounds;
@@ -21,6 +23,10 @@ import static edu.wpi.first.units.Units.VoltsPerRadianPerSecondSquared;
 
 import com.pathplanner.lib.config.PIDConstants;
 
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.units.measure.Angle;
@@ -32,13 +38,19 @@ import edu.wpi.first.units.measure.Per;
 import edu.wpi.first.units.measure.Time;
 import edu.wpi.first.units.measure.Velocity;
 import edu.wpi.first.units.measure.Voltage;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import swervelib.math.Matter;
 
-public final class Constants
-{
-  public static record TwoIDs(int id1, int id2) {}
+public final class Constants {
+  public static Alliance getAlliance() {
+    if (DriverStation.getAlliance().isPresent()) {
+      return DriverStation.getAlliance().get();
+    } else return Alliance.Blue;
+  }
 
+  public static record TwoIDs(int id1, int id2) {}
  
   public static final class CANDeviceID {
     // CAN IDs 1-8 are taken by Swerve motors and 9-12 - by Swerve encoders
@@ -52,6 +64,20 @@ public final class Constants
     public static final int kQuadratureEncoderChannelA = 1;
     public static final int kQuadratureEncoderChannelB = 2;
   }
+
+  /**
+   * Represents a limelight camera
+   * 
+   * @param name {@link String} representing the name of camera (aka identifier)
+   * @param displacementWrtChassis {@link Transform3d} representing the displacement of camera from the center of chassis
+   */
+  public record Camera(String name, Transform3d displacementWrtChassis) {}
+
+  // TODO put the rest of your cameras here
+  /** {@link Camera} array of all camera on robot */
+  public static final Camera[] kCameras = new Camera[] {
+    new Camera("EXAMPLE", new Transform3d(0.0, 0.0, 0.0, new Rotation3d()))
+  };
 
   public static class SwerveConstants {
     // see also PID constants in pidfproperties.json
