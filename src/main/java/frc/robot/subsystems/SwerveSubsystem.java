@@ -333,6 +333,24 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   /**
+   * Drive while facing target
+   * 
+   * @param xVelocitySupplier {@link DoubleSupplier} providing desired x velocity
+   * @param yVelocitySupplier {@link DoubleSupplier} providing desired y velocity
+   * @param pose {@link Pose2d} representing target to face
+   * @return {@link Command}
+   */
+  public Command driveFacingPose2d(
+      DoubleSupplier xVelocitySupplier, 
+      DoubleSupplier yVelocitySupplier, 
+      Pose2d pose) {
+    return driveWhileFacing(
+      xVelocitySupplier, 
+      yVelocitySupplier, 
+      pose.minus(getPose()).getTranslation().getAngle()); // TODO I think this works?
+  }
+
+  /**
    * Command to characterize the robot drive motors using SysId
    *
    * @return {@link Command}
