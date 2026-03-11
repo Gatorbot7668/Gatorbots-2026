@@ -6,37 +6,37 @@ package frc.robot.subsystems;
 
 import com.revrobotics.spark.SparkBase.PersistMode;
 import com.revrobotics.spark.SparkBase.ResetMode;
+import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.config.SparkFlexConfig;
-import com.revrobotics.spark.SparkFlex;
 
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.Constants.FuelConstants;
+
 import static frc.robot.Constants.FuelConstants.*;
 
 public class CANFuelSubsystem extends SubsystemBase {
   private final SparkFlex feederRoller;
   private final SparkFlex intakeLauncherRoller;
 
-  /** Creates a new CANBallSubsystem. */
+  /** Creates a new CANFuelSubsystem using shared motors from ShooterSubsystem. */
   public CANFuelSubsystem() {
-    // create brushed motors for each of the motors on the launcher mechanism
-    intakeLauncherRoller = new SparkFlex(INTAKE_LAUNCHER_MOTOR_ID, MotorType.kBrushless);
-    feederRoller = new SparkFlex(FEEDER_MOTOR_ID, MotorType.kBrushless);
-
-    // create the configuration for the feeder roller, set a current limit and apply
-    // the config to the controller
+    // Use the same motor objects as the shooter subsystem (shared CAN IDs 51 & 52)
+    intakeLauncherRoller = new SparkFlex(FuelConstants.LEAD_shooterMotorID, MotorType.kBrushless);
+    feederRoller = new SparkFlex(FuelConstants.FOLLOW_shooterMotorID, MotorType.kBrushless);
+    
     SparkFlexConfig feederConfig = new SparkFlexConfig();
+    feederConfig.inverted(true);
     feederConfig.smartCurrentLimit(FEEDER_MOTOR_CURRENT_LIMIT);
     feederRoller.configure(feederConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
 
-    // Wait thIS SADIE DONT FORGET guys it says to change the kresetsafe parameters BECAUSE ITS DEPRECATED AND MIGHT GET REMOVED IN FUTURE UPDATES, BUT IM TOO SCARED TO MESS ANYTHING UP SO WHEN YOU GUYS GET HERE LETS LOOK THIS OVER
     // create the configuration for the launcher roller, set a current limit, set
     // the motor to inverted so that positive values are used for both intaking and
     // launching, and apply the config to the controller
     SparkFlexConfig launcherConfig = new SparkFlexConfig();
-    launcherConfig.inverted(true);
+    launcherConfig.inverted(false);
     launcherConfig.smartCurrentLimit(LAUNCHER_MOTOR_CURRENT_LIMIT);
     intakeLauncherRoller.configure(launcherConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
 
@@ -63,24 +63,32 @@ public class CANFuelSubsystem extends SubsystemBase {
 
   // A method to stop the rollers
   public void stop() {
+    // Only control leader — follower mirrors it automatically (YAMS hardware follower)
     feederRoller.setVoltage(0);
     intakeLauncherRoller.setVoltage(0);
   }
 
   // Command to run intake (pull game piece in)
   public Command intake() {
-    return this.run(() -> {
-      setFeederRoller(INTAKING_FEEDER_VOLTAGE);
+    return this.runOnce(() -> {
+      // Only set leader motor — follower mirrors it automatically
       setIntakeLauncherRoller(INTAKING_INTAKE_VOLTAGE);
-    }).finallyDo(() -> stop());
+      setFeederRoller(INTAKING_FEEDER_VOLTAGE);
+    });
   }
 
   // Command to launch (feed game piece to shooter)
-  public Command launch() {
-    return this.run(() -> {
+  public Command shoot() {
+    return this.runOnce(() -> {
+      // Only set leader motor — follower mirrors it automatically
       setFeederRoller(LAUNCHING_FEEDER_VOLTAGE);
-      setIntakeLauncherRoller(LAUNCHING_LAUNCHER_VOLTAGE);
-    }).finallyDo(() -> stop());
+    });
+  }
+    public Command stopCommand() {
+    return this.runOnce(() -> {
+      // Only set leader motor — follower mirrors it automatically
+      stop();
+    });
   }
 
   @Override

@@ -22,7 +22,6 @@ import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.Constants.OperatorConstants;
 import frc.robot.subsystems.SwerveSubsystem;
-import frc.robot.subsystems.ShooterSubsystem_try;
 import frc.robot.subsystems.CANFuelSubsystem;
 import frc.robot.subsystems.VisionSubsystem;
 import frc.robot.util.TunableNumber;
@@ -42,7 +41,7 @@ public class RobotContainer
 {
   private final SwerveSubsystem m_drivebase = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(),
                                                                            "swerve"));
-  private final ShooterSubsystem_try m_shooter = new ShooterSubsystem_try();
+  // Shares the same physical motors (CAN 51 & 52) as the shooter
   private final CANFuelSubsystem m_fuel = new CANFuelSubsystem();
   private final VisionSubsystem m_vision = new VisionSubsystem();
 
@@ -61,7 +60,6 @@ public class RobotContainer
   public RobotContainer() {
     // Field-oriented drive (default)
     NamedCommands.registerCommand("Intake", m_fuel.intake());
-    NamedCommands.registerCommand("ShooterOn", m_shooter.shoot());
     Command driveFieldOrientedAnglularVelocity = m_drivebase.driveRobotRelativeCommand(
         () -> MathUtil.applyDeadband(m_driverXbox.getLeftY() * -1, OperatorConstants.LEFT_Y_DEADBAND),
         () -> MathUtil.applyDeadband(m_driverXbox.getLeftX() * -1, OperatorConstants.LEFT_X_DEADBAND),
@@ -131,20 +129,15 @@ public class RobotContainer
         // driveFieldOrientedDirectAngleSim);
         driveFieldOrientedAnglularVelocity);
     m_driverXbox.leftBumper().whileTrue(driveRobotOriented);
-
-    // SHOOTER: Hold A to spin up shooter
-    m_driverXbox.a().whileTrue(m_shooter.shoot());
-
+    
     // X = Intake
     m_driverXbox.x().whileTrue(m_fuel.intake());
+  
+    // Y = Shoot
+    m_driverXbox.y().whileTrue(m_fuel.shoot());
 
-    // Y = Launch
-    m_driverXbox.y().whileTrue(m_fuel.launch());
-
-    // B = SysId drive motor characterization
-    // TODO: Remove after collecting kS, kV, kA values
-    // m_driverXbox.b().whileTrue(
-    //     m_drivebase.driveCharacterizationSysIdCommand());
+    // B = stop
+    m_driverXbox.b().whileTrue(m_fuel.stopCommand());
 
     // RIGHT BUMPER = Auto-aim to target using Limelight
     m_driverXbox.rightBumper().whileTrue(
@@ -160,15 +153,13 @@ public class RobotContainer
             }
         })
     );
-
+    
+    //m_fuel.setDefaultCommand(m_fuel.intake());
 
     /*
     Command disableArm = m_arm.runOnce(
     addCommandToDashboard(disableArm);
 */
-
-
-   
 
     SmartDashboard.putData(CommandScheduler.getInstance());
 

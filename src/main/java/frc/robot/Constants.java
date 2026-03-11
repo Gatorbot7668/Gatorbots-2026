@@ -79,13 +79,13 @@ public final class Constants
   }
 
   public static final class FuelConstants {
-    // Motor controller IDs for Fuel Mechanism motors
-    public static final int FEEDER_MOTOR_ID = 15; ///// FIX
-    public static final int INTAKE_LAUNCHER_MOTOR_ID = 16;
+    // Motor CAN IDs are now in ShooterConstants (shared motors, CAN 51 & 52)
 
     // Current limit and nominal voltage for fuel mechanism motors.
     public static final int FEEDER_MOTOR_CURRENT_LIMIT = 60;
     public static final int LAUNCHER_MOTOR_CURRENT_LIMIT = 60;
+    public static final int LEAD_shooterMotorID = 52; // RIGHT
+    public static final int FOLLOW_shooterMotorID = 51; // LEFT
 
     // Voltage values for various fuel operations. These values may need to be tuned
     // based on exact robot construction.
@@ -97,14 +97,10 @@ public final class Constants
     public static final double SPIN_UP_FEEDER_VOLTAGE = -6;
     public static final double SPIN_UP_SECONDS = 1;
   }
-  
-  public static final class ShooterConstants {
 
-    public static final int LEAD_shooterMotorID = 13;
-    public static final int FOLLOW_shooterMotorID = 14;
 
-    
-  }
+  /// PROBLEM: Fuelsubsystem and Shootersubsystem share the same physical motors... right now when we deploy both of them does not perform the job.
+  /// Conflict. 
 
 
   public static class OperatorConstants {
