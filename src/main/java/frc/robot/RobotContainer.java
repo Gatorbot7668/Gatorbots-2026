@@ -63,7 +63,7 @@ public class RobotContainer
     Command driveFieldOrientedAnglularVelocity = m_drivebase.driveRobotRelativeCommand(
         () -> MathUtil.applyDeadband(m_driverXbox.getLeftY() * -1, OperatorConstants.LEFT_Y_DEADBAND),
         () -> MathUtil.applyDeadband(m_driverXbox.getLeftX() * -1, OperatorConstants.LEFT_X_DEADBAND),
-        () -> MathUtil.applyDeadband(m_driverXbox.getRightX() * -1, OperatorConstants.RIGHT_X_DEADBAND),
+        () -> MathUtil.applyDeadband(m_driverXbox.getHID().getRawAxis(2) * -1, OperatorConstants.RIGHT_X_DEADBAND),
         () -> false
     );
 
@@ -71,7 +71,7 @@ public class RobotContainer
     Command driveRobotOriented = m_drivebase.driveRobotRelativeCommand(
         () -> MathUtil.applyDeadband(m_driverXbox.getLeftY() * -1, OperatorConstants.LEFT_Y_DEADBAND),
         () -> MathUtil.applyDeadband(m_driverXbox.getLeftX() * -1, OperatorConstants.LEFT_X_DEADBAND),
-        () -> MathUtil.applyDeadband(m_driverXbox.getRightX() * -1, OperatorConstants.RIGHT_X_DEADBAND),
+        () -> MathUtil.applyDeadband(m_driverXbox.getHID().getRawAxis(2) * -1, OperatorConstants.RIGHT_X_DEADBAND),
         () -> false
     );
     addCommandToDashboard(driveRobotOriented);
@@ -186,6 +186,11 @@ public class RobotContainer
     SmartDashboard.putNumber("joystick/left-Y", m_driverXbox.getLeftY());
     SmartDashboard.putNumber("joystick/right-X", m_driverXbox.getRightX());
     SmartDashboard.putNumber("joystick/right-Y", m_driverXbox.getRightY());
+
+    // Debug: show ALL raw axes to find which axis the Logitech maps right stick X to
+    for (int i = 0; i < 6; i++) {
+      SmartDashboard.putNumber("joystick/raw-axis-" + i, m_driverXbox.getHID().getRawAxis(i));
+    }
 
     SmartDashboard.putNumber("pose/x", m_drivebase.getPose().getX());
     SmartDashboard.putNumber("pose/y", m_drivebase.getPose().getY());

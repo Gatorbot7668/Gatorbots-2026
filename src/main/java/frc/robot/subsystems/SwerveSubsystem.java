@@ -373,15 +373,25 @@ public class SwerveSubsystem extends SubsystemBase {
       BooleanSupplier slow) {
     return run(() -> {
 
-      int multiplier = isFieldFlipped() ? -1 : 1;
+      double multiplier = isFieldFlipped() ? -1 : 1;
       if (slow.getAsBoolean()) {
         multiplier *= 0.75;
       }
 
+      double omegaRaw = omegaSupplier.getAsDouble();
+      double omegaCubed = Math.pow(omegaRaw, 3);
+      double maxAngVel = swerveDrive.getMaximumChassisAngularVelocity();
+      double omegaFinal = multiplier * omegaCubed * maxAngVel;
+
+      SmartDashboard.putNumber("debug/omegaRaw", omegaRaw);
+      SmartDashboard.putNumber("debug/omegaCubed", omegaCubed);
+      SmartDashboard.putNumber("debug/maxAngVel", maxAngVel);
+      SmartDashboard.putNumber("debug/omegaFinal", omegaFinal);
+
       swerveDrive.drive(new Translation2d(
         multiplier * Math.pow(xVelocitySupplier.getAsDouble(), 3) * swerveDrive.getMaximumChassisVelocity(),
         multiplier * Math.pow(yVelocitySupplier.getAsDouble(), 3) * swerveDrive.getMaximumChassisVelocity()),
-        multiplier * Math.pow(omegaSupplier.getAsDouble(), 3) * swerveDrive.getMaximumChassisAngularVelocity(),
+        omegaFinal,
         true,
         false);
     });
