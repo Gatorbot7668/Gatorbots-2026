@@ -69,21 +69,53 @@ public class CANFuelSubsystem extends SubsystemBase {
   }
 
   // Command to run intake (pull game piece in)
+  // Runs motors while command is active, stops when command ends
   public Command intake() {
-    return this.runOnce(() -> {
-      // Only set leader motor — follower mirrors it automatically
-      setIntakeLauncherRoller(INTAKING_INTAKE_VOLTAGE);
-      setFeederRoller(INTAKING_FEEDER_VOLTAGE);
-    });
+    return this.startEnd(
+      () -> {
+        setIntakeLauncherRoller(INTAKING_INTAKE_VOLTAGE);
+        setFeederRoller(INTAKING_FEEDER_VOLTAGE);
+      },
+      () -> stop()
+    );
+  }
+
+  // Command to reverse intake (push game piece out)
+  // Runs motors in opposite direction while command is active, stops when command ends
+  public Command reverseIntake() {
+    return this.startEnd(
+      () -> {
+        setIntakeLauncherRoller(-INTAKING_INTAKE_VOLTAGE);
+        setFeederRoller(-INTAKING_FEEDER_VOLTAGE);
+      },
+      () -> stop()
+    );
   }
 
   // Command to launch (feed game piece to shooter)
+  // Runs motors while command is active, stops when command ends
   public Command shoot() {
-    return this.runOnce(() -> {
-      // Only set leader motor — follower mirrors it automatically
-      setFeederRoller(LAUNCHING_FEEDER_VOLTAGE);
-    });
+    return this.startEnd(
+      () -> {
+        setIntakeLauncherRoller(LAUNCHING_LAUNCHER_VOLTAGE);
+        setFeederRoller(LAUNCHING_FEEDER_VOLTAGE);
+      },
+      () -> stop()
+    );
   }
+
+  // Command to ferry (lower-power launch for passing)
+  // Runs motors while command is active, stops when command ends
+  public Command ferry() {
+    return this.startEnd(
+      () -> {
+        setIntakeLauncherRoller(FERRY_LAUNCHER_VOLTAGE);
+        setFeederRoller(FERRY_FEEDER_VOLTAGE);
+      },
+      () -> stop()
+    );
+  }
+
     public Command stopCommand() {
     return this.runOnce(() -> {
       // Only set leader motor — follower mirrors it automatically

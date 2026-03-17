@@ -28,5 +28,31 @@
     "drive": false,
     "angle": false
   },
-  "useCosineCompensator": true
+  "useCosineCompensator": true,
+  "pathPlanner": {
+    "defaultCommand": "pathplanner/generatedJSON/PathWeaverAuto",
+    "timeout": 15,
+    "maxVelocity": 3,
+    "maxAcceleration": 2,
+    "ramseteB": 2,
+    "ramseteZeta": 0.7,
+    "voltage": 10,
+    "turnSensitivity": 0.5,
+    "translationSensitivity": 0.5,
+    "rotationSensitivity": 0.5,
+    "pathFollowingMode": "HOLONOMIC",
+    "enableDynamicConstraints": true,
+    "dynamicConstraints": {
+      "maxVelocity": 3,
+      "maxAcceleration": 2,
+      "maxCentripetalAcceleration": 3,
+      "maxCentripetalForce": 60
+    },
+    "pathWeaver": {
+      "outputDirectory": "deploy/pathplanner/paths/",
+      "generateMirror": true,
+      "mirrorOutputDirectory": "deploy/pathplanner/paths/mirror/",
+      "openInEditor": true
+    }
+  }
 }

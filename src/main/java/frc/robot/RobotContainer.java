@@ -59,7 +59,8 @@ public class RobotContainer
 
   public RobotContainer() {
     // Field-oriented drive (default)
-    NamedCommands.registerCommand("Intake", m_fuel.intake());
+    NamedCommands.registerCommand("Intake", m_fuel.intake().withTimeout(3));
+    NamedCommands.registerCommand("Shoot", m_fuel.shoot().withTimeout(3));
     Command driveFieldOrientedAnglularVelocity = m_drivebase.driveRobotRelativeCommand(
         () -> MathUtil.applyDeadband(m_driverXbox.getLeftY() * -1, OperatorConstants.LEFT_Y_DEADBAND),
         () -> MathUtil.applyDeadband(m_driverXbox.getLeftX() * -1, OperatorConstants.LEFT_X_DEADBAND),
@@ -137,8 +138,11 @@ public class RobotContainer
     // Y = Shoot
     m_driverXbox.y().whileTrue(m_fuel.shoot());
 
-    // B = stop
-    m_driverXbox.b().whileTrue(m_fuel.stopCommand());
+    // B = Reverse Intake (hold)
+    m_driverXbox.b().whileTrue(m_fuel.reverseIntake());
+
+    // A = Ferry (lower-power launch)
+    m_driverXbox.a().whileTrue(m_fuel.ferry());
 
     // RIGHT BUMPER = Auto-aim to target using Limelight
     m_driverXbox.rightBumper().whileTrue(

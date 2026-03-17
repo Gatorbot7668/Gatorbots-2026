@@ -1,12 +1,5 @@
 {
-  "version": 1.0,
-  "startingPose": {
-    "position": {
-      "x": 0.0,
-      "y": 0.0
-    },
-    "rotation": 0.0
-  },
+  "version": "2025.0",
   "command": {
     "type": "sequential",
     "data": {
@@ -14,24 +7,37 @@
         {
           "type": "path",
           "data": {
-            "pathName": "1m straight"
+            "pathName": "CTS RED"
           }
         },
         {
           "type": "named",
           "data": {
-            "name": "armSetAngle60"
+            "name": "Shoot"
           }
         },
         {
           "type": "path",
           "data": {
-            "pathName": "1m left"
+            "pathName": "STI RED"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "Intake"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Going Back RED"
           }
         }
       ]
     }
   },
+  "resetOdom": true,
   "folder": null,
   "choreoAuto": false
 }
