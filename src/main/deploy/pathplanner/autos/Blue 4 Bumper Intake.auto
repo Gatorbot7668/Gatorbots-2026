@@ -7,19 +7,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "LTS RED"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "Shoot"
-          }
-        },
-        {
-          "type": "path",
-          "data": {
-            "pathName": "STI RED"
+            "pathName": "BLUE4 Bumper to Center"
           }
         },
         {
@@ -31,7 +19,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "Going Back RED"
+            "pathName": "BLUE4 Bumper Back"
           }
         }
       ]

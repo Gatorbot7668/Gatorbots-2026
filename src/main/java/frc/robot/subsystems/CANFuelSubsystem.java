@@ -6,13 +6,17 @@ package frc.robot.subsystems;
 
 import com.revrobotics.spark.SparkBase.PersistMode;
 import com.revrobotics.spark.SparkBase.ResetMode;
+import com.ctre.phoenix6.mechanisms.swerve.LegacySwerveModuleConstants.SteerFeedbackType;
 import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.config.SparkFlexConfig;
 
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.InstantCommand;
+import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import edu.wpi.first.wpilibj2.command.WaitCommand;
 import frc.robot.Constants.FuelConstants;
 
 import static frc.robot.Constants.FuelConstants.*;
@@ -92,17 +96,51 @@ public class CANFuelSubsystem extends SubsystemBase {
     );
   }
 
+
+
   // Command to launch (feed game piece to shooter)
   // Runs motors while command is active, stops when command ends
-  public Command shoot() {
+  public Command shoot_launcher() {
     return this.startEnd(
       () -> {
         setIntakeLauncherRoller(LAUNCHING_LAUNCHER_VOLTAGE);
-        setFeederRoller(LAUNCHING_FEEDER_VOLTAGE);
+        
       },
       () -> stop()
     );
   }
+
+  public Command shoot_feeder(){
+    return this.startEnd(
+    () -> {
+      setFeederRoller(LAUNCHING_FEEDER_VOLTAGE);
+    },
+    () -> stop()
+    );
+  }
+
+  public Command shoot(){
+    return new SequentialCommandGroup(
+      new InstantCommand(()->setIntakeLauncherRoller(LAUNCHING_LAUNCHER_VOLTAGE)),
+      new WaitCommand(1),
+      new InstantCommand(()->setFeederRoller(LAUNCHING_FEEDER_VOLTAGE)),
+      new WaitCommand(3),
+      new InstantCommand(()->stop())
+    );
+  }
+
+  public Command maxShoot(){
+    return this.startEnd(
+    () -> {setIntakeLauncherRoller(MAXIMUM_VOLTAGE);
+          setFeederRoller(LAUNCHING_FEEDER_VOLTAGE);
+    },
+    ()->stop()
+    );
+   
+  }
+
+
+    
 
   // Command to ferry (lower-power launch for passing)
   // Runs motors while command is active, stops when command ends

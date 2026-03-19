@@ -7,19 +7,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "CTS"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "Shoot"
-          }
-        },
-        {
-          "type": "path",
-          "data": {
-            "pathName": "STI"
+            "pathName": "Red 2 Bumper to Center"
           }
         },
         {
@@ -31,13 +19,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "Going back"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "Shoot"
+            "pathName": "Red 2 Bumper back"
           }
         }
       ]

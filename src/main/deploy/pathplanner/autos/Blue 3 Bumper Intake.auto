@@ -7,19 +7,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "LTS"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "Shoot"
-          }
-        },
-        {
-          "type": "path",
-          "data": {
-            "pathName": "STI"
+            "pathName": "BLUE3 Bumper to Center"
           }
         },
         {
@@ -31,13 +19,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "Going back"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "Shoot"
+            "pathName": "BLUE3 Bumper Back"
           }
         }
       ]

@@ -7,19 +7,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "RTS RED"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "Shoot"
-          }
-        },
-        {
-          "type": "path",
-          "data": {
-            "pathName": "STI RED"
+            "pathName": "Blue Depot to"
           }
         },
         {
@@ -31,7 +19,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "Going Back RED"
+            "pathName": "Blue Depot back"
           }
         }
       ]

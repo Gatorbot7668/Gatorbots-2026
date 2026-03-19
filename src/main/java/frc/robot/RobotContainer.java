@@ -60,7 +60,7 @@ public class RobotContainer
   public RobotContainer() {
     // Field-oriented drive (default)
     NamedCommands.registerCommand("Intake", m_fuel.intake().withTimeout(3));
-    NamedCommands.registerCommand("Shoot", m_fuel.shoot().withTimeout(3));
+    NamedCommands.registerCommand("Shoot", m_fuel.shoot());
     Command driveFieldOrientedAnglularVelocity = m_drivebase.driveRobotRelativeCommand(
         () -> MathUtil.applyDeadband(m_driverXbox.getLeftY() * -1, OperatorConstants.LEFT_Y_DEADBAND),
         () -> MathUtil.applyDeadband(m_driverXbox.getLeftX() * -1, OperatorConstants.LEFT_X_DEADBAND),
@@ -133,16 +133,22 @@ public class RobotContainer
     m_driverXbox.leftBumper().whileTrue(driveRobotOriented);
     
     // X = Intake
-    m_driverXbox.x().whileTrue(m_fuel.intake());
+    m_secondaryDriverXbox.a().whileTrue(m_fuel.intake());
   
-    // Y = Shoot
-    m_driverXbox.y().whileTrue(m_fuel.shoot());
+    // LT (Hold First) - launcher
+    m_secondaryDriverXbox.leftBumper().whileTrue(m_fuel.shoot_launcher());
+
+    // RT (hold later) - feeder
+    m_secondaryDriverXbox.rightBumper().whileTrue(m_fuel.shoot_feeder());
+
 
     // B = Reverse Intake (hold)
-    m_driverXbox.b().whileTrue(m_fuel.reverseIntake());
+    m_secondaryDriverXbox.x().whileTrue(m_fuel.reverseIntake());
 
     // A = Ferry (lower-power launch)
-    m_driverXbox.a().whileTrue(m_fuel.ferry());
+    m_secondaryDriverXbox.b().whileTrue(m_fuel.ferry());
+
+    m_secondaryDriverXbox.y().whileTrue(m_fuel.maxShoot());
 
     // RIGHT BUMPER = Auto-aim to target using Limelight
     m_driverXbox.rightBumper().whileTrue(
@@ -206,6 +212,11 @@ public class RobotContainer
     SmartDashboard.putNumber("SysId/kS", frc.robot.Constants.SwerveConstants.kDriveS);
     SmartDashboard.putNumber("SysId/kV", frc.robot.Constants.SwerveConstants.kDriveV);
     SmartDashboard.putNumber("SysId/kA", frc.robot.Constants.SwerveConstants.kDriveA);
+
+
+    // LIMELIGHT
+
+    //SmartDashboard.putData("Limelight vision", frc.robot.subsystems.VisionSubsystem)
 
     if (m_angleD.hasChanged() || m_angleP.hasChanged()) {
       for (SwerveModule module : m_drivebase.swerveDrive.getModules()) {

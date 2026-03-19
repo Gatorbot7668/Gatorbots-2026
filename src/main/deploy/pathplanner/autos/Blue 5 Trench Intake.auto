@@ -7,19 +7,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "CTS RED"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "Shoot"
-          }
-        },
-        {
-          "type": "path",
-          "data": {
-            "pathName": "STI RED"
+            "pathName": "BLUE 5 Trench to Center"
           }
         },
         {
@@ -31,7 +19,7 @@
         {
           "type": "path",
           "data": {
-            "pathName": "Going Back RED"
+            "pathName": "BLUE5 Trench back"
           }
         }
       ]
