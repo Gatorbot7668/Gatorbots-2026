@@ -60,7 +60,7 @@ public class RobotContainer
   public RobotContainer() {
     // Field-oriented drive (default)
     NamedCommands.registerCommand("Intake", m_fuel.intake().withTimeout(3));
-    NamedCommands.registerCommand("Shoot", m_fuel.shoot());
+    NamedCommands.registerCommand("adjustShoot", m_fuel.adjustingShoot(m_vision));
     Command driveFieldOrientedAnglularVelocity = m_drivebase.driveRobotRelativeCommand(
         () -> MathUtil.applyDeadband(m_driverXbox.getLeftY() * -1, OperatorConstants.LEFT_Y_DEADBAND),
         () -> MathUtil.applyDeadband(m_driverXbox.getLeftX() * -1, OperatorConstants.LEFT_X_DEADBAND),
@@ -125,13 +125,12 @@ public class RobotContainer
 
     m_drivebase.setDefaultCommand(
         // testMotors);
-        // driveRobotOriented);
+        //driveRobotOriented);
         // driveFieldOrientedDirectAngle);
         // !RobotBase.isSimulation() ? driveFieldOrientedDirectAngle :
         // driveFieldOrientedDirectAngleSim);
         driveFieldOrientedAnglularVelocity);
-    m_driverXbox.leftBumper().whileTrue(driveRobotOriented);
-    
+  
     // X = Intake
     m_secondaryDriverXbox.a().whileTrue(m_fuel.intake());
   
@@ -150,20 +149,10 @@ public class RobotContainer
 
     m_secondaryDriverXbox.y().whileTrue(m_fuel.maxShoot());
 
-    // RIGHT BUMPER = Auto-aim to target using Limelight
-    m_driverXbox.rightBumper().whileTrue(
-        m_drivebase.run(() -> {
-            if (m_vision.hasTarget()) {
-                double turnSpeed = -m_vision.getTargetX() * 0.03;  // P controller
-                m_drivebase.swerveDrive.drive(
-                    new Translation2d(0, 0),   // No forward/sideways movement
-                    turnSpeed,                  // Rotation speed (rad/s)
-                    true,                       // Field relative
-                    false                       // Not open loop
-                );
-            }
-        })
-    );
+    // D-pad Up = Adjusting shoot (voltage based on Limelight distance)
+    m_secondaryDriverXbox.povUp().whileTrue(m_fuel.adjustingShoot(m_vision));
+
+    
     
     //m_fuel.setDefaultCommand(m_fuel.intake());
 

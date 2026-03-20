@@ -99,6 +99,14 @@ public final class Constants
     public static final double SPIN_UP_FEEDER_VOLTAGE = -6;
     public static final double SPIN_UP_SECONDS = 1.5;
     public static final double MAXIMUM_VOLTAGE = 12;
+
+    // Adjusting shoot constants
+    // ta range: the expected min/max target area values (percentage of image)
+    // When ta is at or below MIN, we use max shoot voltage; at or above MAX, we use min shoot voltage
+    public static final double ADJUSTING_SHOOT_TA_MIN = 0.5;   // far away
+    public static final double ADJUSTING_SHOOT_TA_MAX = 10.0;  // very close
+    public static final double ADJUSTING_SHOOT_MIN_VOLTAGE = 4.0;   // close range
+    public static final double ADJUSTING_SHOOT_MAX_VOLTAGE = 12.0;  // far range
   }
 
 

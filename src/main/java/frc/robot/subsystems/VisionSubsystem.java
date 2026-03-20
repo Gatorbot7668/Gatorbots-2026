@@ -88,10 +88,18 @@ public class VisionSubsystem extends SubsystemBase {
         }
     }
 
+    public double get_ta(){
+        double ta = LimelightHelpers.getTA("limelight");
+        return ta;
+    }
+
+
+
     // ==================== PERIODIC ====================
 
     @Override
     public void periodic() {
+        SmartDashboard.putNumber("Vision/ta", get_ta() );
         SmartDashboard.putBoolean("Vision/HasTarget", hasTarget());
         SmartDashboard.putNumber("Vision/TargetX", getTargetX());
         SmartDashboard.putNumber("Vision/TargetY", getTargetY());

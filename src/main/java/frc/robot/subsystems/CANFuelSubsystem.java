@@ -11,8 +11,10 @@ import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.config.SparkFlexConfig;
 
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.InstantCommand;
 import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -137,6 +139,51 @@ public class CANFuelSubsystem extends SubsystemBase {
     ()->stop()
     );
    
+  }
+
+  /**
+   * Adjusts shoot voltage based on distance to target (using Limelight ta).
+   * ta is the target area as a percentage of the camera frame:
+   *   - Large ta = close to target = less voltage needed
+   *   - Small ta = far from target = more voltage needed
+   * Voltage is linearly interpolated between MIN and MAX voltage based on ta.
+   * Launcher spins up first, then feeder starts after 2 seconds.
+   * Release the button at any point to stop all motors.
+   * 
+   * @param vision The VisionSubsystem to read ta from
+   */
+  public Command adjustingShoot(VisionSubsystem vision) {
+    return new SequentialCommandGroup(
+      // Step 1: Read ta and calculate voltage, then start launcher only
+      new InstantCommand(() -> {
+        double ta = vision.get_ta();
+        double clampedTa = MathUtil.clamp(ta, ADJUSTING_SHOOT_TA_MIN, ADJUSTING_SHOOT_TA_MAX);
+        double t = (ADJUSTING_SHOOT_TA_MAX - clampedTa-4) / (ADJUSTING_SHOOT_TA_MAX - ADJUSTING_SHOOT_TA_MIN);
+        double voltage = ADJUSTING_SHOOT_MIN_VOLTAGE + t * (ADJUSTING_SHOOT_MAX_VOLTAGE - ADJUSTING_SHOOT_MIN_VOLTAGE)+0.5;
+        voltage = MathUtil.clamp(voltage, ADJUSTING_SHOOT_MIN_VOLTAGE, ADJUSTING_SHOOT_MAX_VOLTAGE);
+
+        SmartDashboard.putNumber("AdjustingShoot/ta", ta);
+        SmartDashboard.putNumber("AdjustingShoot/voltage", voltage);
+
+        setIntakeLauncherRoller(voltage);
+      }),
+      // Step 2: Wait 2 seconds for launcher to spin up
+      new WaitCommand(2),
+      // Step 3: Start feeder at same voltage (re-read ta for latest value)
+      new InstantCommand(() -> {
+        double ta = vision.get_ta();
+        double clampedTa = MathUtil.clamp(ta, ADJUSTING_SHOOT_TA_MIN, ADJUSTING_SHOOT_TA_MAX);
+        double t = (ADJUSTING_SHOOT_TA_MAX - clampedTa-4) / (ADJUSTING_SHOOT_TA_MAX - ADJUSTING_SHOOT_TA_MIN);
+        double voltage = ADJUSTING_SHOOT_MIN_VOLTAGE + t * (ADJUSTING_SHOOT_MAX_VOLTAGE - ADJUSTING_SHOOT_MIN_VOLTAGE)+0.5;
+        voltage = MathUtil.clamp(voltage, ADJUSTING_SHOOT_MIN_VOLTAGE, ADJUSTING_SHOOT_MAX_VOLTAGE);
+
+        SmartDashboard.putNumber("AdjustingShoot/voltage", voltage);
+
+        setFeederRoller(voltage);
+      }),
+      // Step 4: Keep running until button is released (this command never finishes on its own)
+      Commands.run(() -> {})
+    ).finallyDo(() -> stop());
   }
 
 
