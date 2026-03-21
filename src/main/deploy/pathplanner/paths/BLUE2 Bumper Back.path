@@ -3,16 +3,16 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 6.71,
-        "y": 5.299
+        "x": 7.2371174377224206,
+        "y": 5.439074733096086
       },
       "prevControl": null,
       "nextControl": {
-        "x": 6.8928232502895215,
-        "y": 5.966275207590529
+        "x": 7.428677585627198,
+        "y": 5.599713177232911
       },
       "isLocked": false,
-      "linkedName": null
+      "linkedName": "blue2 bumper end"
     },
     {
       "anchor": {
@@ -20,8 +20,8 @@
         "y": 5.299
       },
       "prevControl": {
-        "x": 3.137864768676235,
-        "y": 5.815441281138791
+        "x": 3.4788040798751854,
+        "y": 5.252836574645806
       },
       "nextControl": null,
       "isLocked": false,

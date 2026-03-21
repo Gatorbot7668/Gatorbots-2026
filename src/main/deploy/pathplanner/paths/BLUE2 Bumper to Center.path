@@ -8,24 +8,24 @@
       },
       "prevControl": null,
       "nextControl": {
-        "x": 3.1486239620403325,
-        "y": 5.9339976275207595
+        "x": 3.146756645938728,
+        "y": 5.5819158711336785
       },
       "isLocked": false,
       "linkedName": null
     },
     {
       "anchor": {
-        "x": 6.709916963221193,
-        "y": 5.299205219459709
+        "x": 7.2371174377224206,
+        "y": 5.439074733096086
       },
       "prevControl": {
-        "x": 5.816903914590748,
-        "y": 4.997947805456701
+        "x": 6.638674155929369,
+        "y": 5.398174850697584
       },
       "nextControl": null,
       "isLocked": false,
-      "linkedName": null
+      "linkedName": "blue2 bumper end"
     }
   ],
   "rotationTargets": [],

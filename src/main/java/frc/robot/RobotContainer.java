@@ -5,6 +5,7 @@
 package frc.robot;
 
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import com.pathplanner.lib.auto.NamedCommands;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -198,9 +199,9 @@ public class RobotContainer
     SmartDashboard.putString("alliance", m_drivebase.isFieldFlipped() ? "RED" : "BLUE");
 
     // Display SysId characterization constants
-    SmartDashboard.putNumber("SysId/kS", frc.robot.Constants.SwerveConstants.kDriveS);
-    SmartDashboard.putNumber("SysId/kV", frc.robot.Constants.SwerveConstants.kDriveV);
-    SmartDashboard.putNumber("SysId/kA", frc.robot.Constants.SwerveConstants.kDriveA);
+    SmartDashboard.putNumber("SysId/kS", frc.robot.Constants.SwerveConstants.kDriveS.get());
+    SmartDashboard.putNumber("SysId/kV", frc.robot.Constants.SwerveConstants.kDriveV.get());
+    SmartDashboard.putNumber("SysId/kA", frc.robot.Constants.SwerveConstants.kDriveA.get());
 
 
     // LIMELIGHT
@@ -216,6 +217,16 @@ public class RobotContainer
       for (SwerveModule module : m_drivebase.swerveDrive.getModules()) {
         module.getDriveMotor().configurePIDF(new PIDFConfig(m_driveP.get(), m_driveD.get()));
       }
+    }
+    // Update feedforward when tunable values are changed on SmartDashboard
+    if (frc.robot.Constants.SwerveConstants.kDriveS.hasChanged()
+        || frc.robot.Constants.SwerveConstants.kDriveV.hasChanged()
+        || frc.robot.Constants.SwerveConstants.kDriveA.hasChanged()) {
+      m_drivebase.swerveDrive.replaceSwerveModuleFeedforward(
+          new SimpleMotorFeedforward(
+              frc.robot.Constants.SwerveConstants.kDriveS.get(),
+              frc.robot.Constants.SwerveConstants.kDriveV.get(),
+              frc.robot.Constants.SwerveConstants.kDriveA.get()));
     }
   }
 

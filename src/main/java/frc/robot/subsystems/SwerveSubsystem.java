@@ -107,9 +107,9 @@ public class SwerveSubsystem extends SubsystemBase {
     // after running sys id, check the log values from robot station to get the measured real life values for kS, kV and kA and then update them in constants. 
     swerveDrive.replaceSwerveModuleFeedforward(
         new SimpleMotorFeedforward(
-            SwerveConstants.kDriveS,
-            SwerveConstants.kDriveV,
-            SwerveConstants.kDriveA));
+            SwerveConstants.kDriveS.get(),
+            SwerveConstants.kDriveV.get(),
+            SwerveConstants.kDriveA.get()));
 
     setupPathPlanner();
 
@@ -373,7 +373,7 @@ public class SwerveSubsystem extends SubsystemBase {
       BooleanSupplier slow) {
     return run(() -> {
 
-      double multiplier = isFieldFlipped() ? -1 : 1;
+      double multiplier = 1.0;
       if (slow.getAsBoolean()) {
         multiplier *= 0.75;
       }
@@ -392,7 +392,7 @@ public class SwerveSubsystem extends SubsystemBase {
         multiplier * Math.pow(xVelocitySupplier.getAsDouble(), 3) * swerveDrive.getMaximumChassisVelocity(),
         multiplier * Math.pow(yVelocitySupplier.getAsDouble(), 3) * swerveDrive.getMaximumChassisVelocity()),
         omegaFinal,
-        true,
+        false,
         false);
     });
   }

@@ -158,8 +158,8 @@ public class CANFuelSubsystem extends SubsystemBase {
       new InstantCommand(() -> {
         double ta = vision.get_ta();
         double clampedTa = MathUtil.clamp(ta, ADJUSTING_SHOOT_TA_MIN, ADJUSTING_SHOOT_TA_MAX);
-        double t = (ADJUSTING_SHOOT_TA_MAX - clampedTa-4) / (ADJUSTING_SHOOT_TA_MAX - ADJUSTING_SHOOT_TA_MIN);
-        double voltage = ADJUSTING_SHOOT_MIN_VOLTAGE + t * (ADJUSTING_SHOOT_MAX_VOLTAGE - ADJUSTING_SHOOT_MIN_VOLTAGE)+0.5;
+        double t = (ADJUSTING_SHOOT_TA_MAX - clampedTa-5) / (ADJUSTING_SHOOT_TA_MAX - ADJUSTING_SHOOT_TA_MIN);
+        double voltage = ADJUSTING_SHOOT_MIN_VOLTAGE + t * (ADJUSTING_SHOOT_MAX_VOLTAGE - ADJUSTING_SHOOT_MIN_VOLTAGE);
         voltage = MathUtil.clamp(voltage, ADJUSTING_SHOOT_MIN_VOLTAGE, ADJUSTING_SHOOT_MAX_VOLTAGE);
 
         SmartDashboard.putNumber("AdjustingShoot/ta", ta);
@@ -173,8 +173,8 @@ public class CANFuelSubsystem extends SubsystemBase {
       new InstantCommand(() -> {
         double ta = vision.get_ta();
         double clampedTa = MathUtil.clamp(ta, ADJUSTING_SHOOT_TA_MIN, ADJUSTING_SHOOT_TA_MAX);
-        double t = (ADJUSTING_SHOOT_TA_MAX - clampedTa-4) / (ADJUSTING_SHOOT_TA_MAX - ADJUSTING_SHOOT_TA_MIN);
-        double voltage = ADJUSTING_SHOOT_MIN_VOLTAGE + t * (ADJUSTING_SHOOT_MAX_VOLTAGE - ADJUSTING_SHOOT_MIN_VOLTAGE)+0.5;
+        double t = (ADJUSTING_SHOOT_TA_MAX - clampedTa-5) / (ADJUSTING_SHOOT_TA_MAX - ADJUSTING_SHOOT_TA_MIN);
+        double voltage = ADJUSTING_SHOOT_MIN_VOLTAGE + t * (ADJUSTING_SHOOT_MAX_VOLTAGE - ADJUSTING_SHOOT_MIN_VOLTAGE);
         voltage = MathUtil.clamp(voltage, ADJUSTING_SHOOT_MIN_VOLTAGE, ADJUSTING_SHOOT_MAX_VOLTAGE);
 
         SmartDashboard.putNumber("AdjustingShoot/voltage", voltage);
@@ -190,15 +190,18 @@ public class CANFuelSubsystem extends SubsystemBase {
     
 
   // Command to ferry (lower-power launch for passing)
-  // Runs motors while command is active, stops when command ends
+  // Spins up launcher for 2 seconds, then feeds. Stops when released.
   public Command ferry() {
-    return this.startEnd(
-      () -> {
-        setIntakeLauncherRoller(FERRY_LAUNCHER_VOLTAGE);
+    return new SequentialCommandGroup(
+      new InstantCommand(() -> {
+        setIntakeLauncherRoller(FERRY_FEEDER_VOLTAGE);
+      }),
+      new WaitCommand(2),
+      new InstantCommand(() -> {
         setFeederRoller(FERRY_FEEDER_VOLTAGE);
-      },
-      () -> stop()
-    );
+      }),
+      Commands.run(() -> {})
+    ).finallyDo(() -> stop());
   }
 
     public Command stopCommand() {

@@ -33,6 +33,7 @@ import edu.wpi.first.units.measure.Time;
 import edu.wpi.first.units.measure.Velocity;
 import edu.wpi.first.units.measure.Voltage;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import frc.robot.util.TunableNumber;
 import swervelib.math.Matter;
 
 public final class Constants
@@ -62,10 +63,11 @@ public final class Constants
     // Drive motor feedforward gains (from SysId characterization).
     // TODO: Run SysId on the real robot and replace these placeholder values!
     //   Use driveCharacterizationSysIdCommand(), then plug in the results here.
-    public static final double kDriveS = 0.0;   // Volts to overcome static friction
-    public static final double kDriveV = 0.0;   // Volts per meter-per-second
-    public static final double kDriveA = 0.0;   // Volts per meter-per-second-squared
+    public static final TunableNumber kDriveS = new TunableNumber("Swerve/FF/kS", 0.0);   // Volts to overcome static friction
+    public static final TunableNumber kDriveV = new TunableNumber("Swerve/FF/kV", 0.0);   // Volts per meter-per-second
+    public static final TunableNumber kDriveA = new TunableNumber("Swerve/FF/kA", 0.0);   // Volts per meter-per-second-squared
   }
+  //This means the drive motors get no feedforward assistance — the PID has to do all the work from scratch, making it sluggish and inaccurate.
 
   public static final class PathPlannerConstants {
     public static final PIDConstants kTranslationPID = new PIDConstants(0.7, 0, 0);
