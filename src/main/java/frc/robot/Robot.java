@@ -6,7 +6,7 @@ package frc.robot;
 
 import static edu.wpi.first.units.Units.Seconds;
 
-//import com.revrobotics.REVPhysicsSim;
+import com.revrobotics.REVPhysicsSim;
 
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.Timer;
@@ -130,6 +130,6 @@ public class Robot extends TimedRobot {
   /** This function is called periodically whilst in simulation. */
   @Override
   public void simulationPeriodic() {
-    // REVPhysicsSim.getInstance().run();
+    REVPhysicsSim.getInstance().run();
   }
 }

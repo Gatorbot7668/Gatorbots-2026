@@ -14,6 +14,8 @@ import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj.smartdashboard.Field2d;
+import com.pathplanner.lib.util.PathPlannerLogging;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -56,6 +58,7 @@ public class RobotContainer
   TunableNumber m_driveD = new TunableNumber("Swerve/PID/ModuleDrive/D", SwerveParser.pidfPropertiesJson.drive.d);
 
   private SendableChooser<Command> m_autoChooser = null;
+  private final Field2d m_field = new Field2d();
 
   public RobotContainer() {
     // Field-oriented drive (default)
@@ -177,6 +180,17 @@ public class RobotContainer
     m_autoChooser = AutoBuilder.buildAutoChooser();
     SmartDashboard.putData("Auto Chooser", m_autoChooser);
 
+    // Field2d — shows robot position on field in Sim GUI / Shuffleboard
+    SmartDashboard.putData("Field", m_field);
+
+    // PathPlanner logging — visualizes active path + target pose in sim
+    PathPlannerLogging.setLogCurrentPoseCallback(
+        (pose) -> m_field.setRobotPose(pose));
+    PathPlannerLogging.setLogTargetPoseCallback(
+        (pose) -> m_field.getObject("target pose").setPose(pose));
+    PathPlannerLogging.setLogActivePathCallback(
+        (poses) -> m_field.getObject("active path").setPoses(poses));
+
     // Add SysId drive characterization command to SmartDashboard for manual start
     SmartDashboard.putData("SysId/Drive Characterization", m_drivebase.driveCharacterizationSysIdCommand());
   }
@@ -202,9 +216,11 @@ public class RobotContainer
       SmartDashboard.putNumber("joystick/raw-axis-" + i, m_driverXbox.getHID().getRawAxis(i));
     }
 
-    SmartDashboard.putNumber("pose/x", m_drivebase.getPose().getX());
-    SmartDashboard.putNumber("pose/y", m_drivebase.getPose().getY());
-    SmartDashboard.putNumber("pose/z", m_drivebase.getPose().getRotation().getDegrees());
+    Pose2d currentPose = m_drivebase.getPose();
+    m_field.setRobotPose(currentPose);
+    SmartDashboard.putNumber("pose/x", currentPose.getX());
+    SmartDashboard.putNumber("pose/y", currentPose.getY());
+    SmartDashboard.putNumber("pose/z", currentPose.getRotation().getDegrees());
 
     SmartDashboard.putString("alliance", m_drivebase.isFieldFlipped() ? "RED" : "BLUE");
 
