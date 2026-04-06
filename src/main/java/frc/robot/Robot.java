@@ -8,7 +8,13 @@ import static edu.wpi.first.units.Units.Seconds;
 
 //import com.revrobotics.REVPhysicsSim;
 
-import edu.wpi.first.wpilibj.TimedRobot;
+import org.littletonrobotics.junction.LogFileUtil;
+import org.littletonrobotics.junction.LoggedRobot;
+import org.littletonrobotics.junction.Logger;
+import org.littletonrobotics.junction.networktables.NT4Publisher;
+import org.littletonrobotics.junction.wpilog.WPILOGReader;
+import org.littletonrobotics.junction.wpilog.WPILOGWriter;
+
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
@@ -19,7 +25,7 @@ import edu.wpi.first.wpilibj2.command.CommandScheduler;
  * the package after creating this project, you must also update the build.gradle file in the
  * project.
  */
-public class Robot extends TimedRobot {
+public class Robot extends LoggedRobot {
   private Command m_autonomousCommand;
 
   private RobotContainer m_robotContainer;
@@ -32,8 +38,27 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotInit() {
+    // --- AdvantageKit Logging Setup ---
+    Logger.recordMetadata("ProjectName", "Gatorbots-2026");
+
+    if (isReal()) {
+      // Running on the real robot:
+      // Log to a USB stick (FAT32 formatted, plugged into roboRIO USB port)
+      Logger.addDataReceiver(new WPILOGWriter());
+      // Also publish live to NetworkTables so AdvantageScope can connect
+      Logger.addDataReceiver(new NT4Publisher());
+    } else {
+      // Running in simulation — set up for replay
+      setUseTiming(false); // Run as fast as possible
+      String logPath = LogFileUtil.findReplayLog();
+      Logger.setReplaySource(new WPILOGReader(logPath));
+      Logger.addDataReceiver(new WPILOGWriter(LogFileUtil.addPathSuffix(logPath, "_sim")));
+    }
+
+    // Start logging! Must be called before any other initialization.
+    Logger.start();
+
     // This is needed because "Since 2024, LiveWindow is not enabled by default in Test mode"
-    // (https://docs.wpilib.org/en/stable/docs/software/dashboards/smartdashboard/test-mode-and-live-window/enabling-test-mode.html)
     enableLiveWindowInTest(true);
     // Instantiate our RobotContainer.  This will perform all our button bindings, and put our
     // autonomous chooser on the dashboard.

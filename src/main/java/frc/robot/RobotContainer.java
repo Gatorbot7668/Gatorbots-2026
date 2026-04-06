@@ -7,6 +7,8 @@ package frc.robot;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import com.pathplanner.lib.auto.NamedCommands;
+import edu.wpi.first.cameraserver.CameraServer;
+import edu.wpi.first.cscore.HttpCamera;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
@@ -59,6 +61,11 @@ public class RobotContainer
   private SendableChooser<Command> m_autoChooser = null;
 
   public RobotContainer() {
+    // --- Limelight color camera stream for Elastic/Shuffleboard ---
+    // Uses the default Limelight hostname. If this doesn't work, try "http://10.76.68.11:5800/stream.mjpg"
+    HttpCamera limelightCam = new HttpCamera("limelight", "http://limelight.local:5800/stream.mjpg");
+    CameraServer.startAutomaticCapture(limelightCam);
+
     // Field-oriented drive (default)
     NamedCommands.registerCommand("Intake", m_fuel.intake().withTimeout(3));
     NamedCommands.registerCommand("adjustShoot", m_fuel.adjustingShoot(m_vision));
@@ -227,6 +234,18 @@ public class RobotContainer
               frc.robot.Constants.SwerveConstants.kDriveS.get(),
               frc.robot.Constants.SwerveConstants.kDriveV.get(),
               frc.robot.Constants.SwerveConstants.kDriveA.get()));
+    }
+
+    // Update shooter PID when tunable values are changed on SmartDashboard
+    if (frc.robot.Constants.FuelConstants.kLauncherP.hasChanged()
+        || frc.robot.Constants.FuelConstants.kLauncherI.hasChanged()
+        || frc.robot.Constants.FuelConstants.kLauncherD.hasChanged()
+        || frc.robot.Constants.FuelConstants.kLauncherFF.hasChanged()
+        || frc.robot.Constants.FuelConstants.kFeederP.hasChanged()
+        || frc.robot.Constants.FuelConstants.kFeederI.hasChanged()
+        || frc.robot.Constants.FuelConstants.kFeederD.hasChanged()
+        || frc.robot.Constants.FuelConstants.kFeederFF.hasChanged()) {
+      m_fuel.reconfigurePID();
     }
   }
 

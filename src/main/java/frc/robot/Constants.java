@@ -89,13 +89,29 @@ public final class Constants
     public static final int LEAD_shooterMotorID = 52; // RIGHT
     public static final int FOLLOW_shooterMotorID = 51; // LEFT
 
+    // NEO Vortex free speed is ~6784 RPM. We use this to convert voltage targets to RPM targets.
+    public static final double NEO_VORTEX_FREE_SPEED_RPM = 6784.0;
+
+    // PID + FF gains for launcher velocity control (tunable via SmartDashboard)
+    public static final TunableNumber kLauncherP  = new TunableNumber("Shooter/Launcher/kP", 0.0005);
+    public static final TunableNumber kLauncherI  = new TunableNumber("Shooter/Launcher/kI", 0.0);
+    public static final TunableNumber kLauncherD  = new TunableNumber("Shooter/Launcher/kD", 0.0);
+    public static final TunableNumber kLauncherFF = new TunableNumber("Shooter/Launcher/kFF", 1.0 / NEO_VORTEX_FREE_SPEED_RPM);
+
+    // PID + FF gains for feeder velocity control (tunable via SmartDashboard)
+    public static final TunableNumber kFeederP  = new TunableNumber("Shooter/Feeder/kP", 0.0005);
+    public static final TunableNumber kFeederI  = new TunableNumber("Shooter/Feeder/kI", 0.0);
+    public static final TunableNumber kFeederD  = new TunableNumber("Shooter/Feeder/kD", 0.0);
+    public static final TunableNumber kFeederFF = new TunableNumber("Shooter/Feeder/kFF", 1.0 / NEO_VORTEX_FREE_SPEED_RPM);
+    // right niw kFF = 1.0 / 6784 ≈ 0.000147, which means that for every 1 RPM, the motor is required to apply 0.0000147 of the motors 
+
     // Voltage values for various fuel operations. These values may need to be tuned
     // based on exact robot construction.
     // See the Software Guide for tuning information
     public static final double INTAKING_FEEDER_VOLTAGE = -5;
     public static final double INTAKING_INTAKE_VOLTAGE = 5;
-    public static final double LAUNCHING_FEEDER_VOLTAGE = 10.6;
-        public static final double LAUNCHING_LAUNCHER_VOLTAGE = 10.6;
+    public static final double LAUNCHING_FEEDER_VOLTAGE = 11;
+        public static final double LAUNCHING_LAUNCHER_VOLTAGE = 11;
     public static final double FERRY_FEEDER_VOLTAGE = 4;
     public static final double FERRY_LAUNCHER_VOLTAGE = 5;
     public static final double SPIN_UP_FEEDER_VOLTAGE = -6;
@@ -109,6 +125,11 @@ public final class Constants
     public static final double ADJUSTING_SHOOT_TA_MAX = 10.0;  // very close
     public static final double ADJUSTING_SHOOT_MIN_VOLTAGE = 4.0;   // close range
     public static final double ADJUSTING_SHOOT_MAX_VOLTAGE = 12.0;  // far range
+
+    // RPM boost applied periodically during adjustingShoot to compensate for voltage droop.
+    // The target RPM increases by this amount every second while the button is held.
+    // TODO: Tune this value on the real robot!
+    public static final double ADJUSTING_SHOOT_RPM_BOOST_PER_SECOND = 10.0;
   }
 
 
