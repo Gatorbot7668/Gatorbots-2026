@@ -23,6 +23,7 @@ import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.WaitCommand;
 import frc.robot.Constants.FuelConstants;
+import frc.robot.util.ShooterParameters;
 
 import static frc.robot.Constants.FuelConstants.*;
 
@@ -208,11 +209,14 @@ public class CANFuelSubsystem extends SubsystemBase {
 
   /**
    * Adjusts shoot RPM based on distance to target (using Limelight ta),
-   * and periodically boosts the RPM setpoint to compensate for voltage droop.
+   * using a lookup table for empirically-tested RPM values.
    *
    * ta is the target area as a percentage of the camera frame:
    *   - Large ta = close to target = less RPM needed
    *   - Small ta = far from target = more RPM needed
+   *
+   * The lookup table (SHOOTER_LOOKUP_TABLE in Constants) maps ta values
+   * to tested RPM values and interpolates between sample points.
    *
    * Uses closed-loop velocity PID so motors maintain speed even under load.
    * Launcher spins up first, then feeder starts after 2 seconds.
@@ -223,44 +227,44 @@ public class CANFuelSubsystem extends SubsystemBase {
    */
   public Command adjustingShoot(VisionSubsystem vision) {
     return new SequentialCommandGroup(
-      // Step 1: Read ta and calculate RPM, then start launcher only.
+      // Step 1: Read ta and lookup RPM from table, then start launcher only.
       //         Also reset the boost timer.
       new InstantCommand(() -> {
         double ta = vision.get_ta();
         double clampedTa = MathUtil.clamp(ta, ADJUSTING_SHOOT_TA_MIN, ADJUSTING_SHOOT_TA_MAX);
-        double t = (ADJUSTING_SHOOT_TA_MAX - clampedTa - 5) / (ADJUSTING_SHOOT_TA_MAX - ADJUSTING_SHOOT_TA_MIN);
-        double voltage = ADJUSTING_SHOOT_MIN_VOLTAGE + t * (ADJUSTING_SHOOT_MAX_VOLTAGE - ADJUSTING_SHOOT_MIN_VOLTAGE);
-        voltage = MathUtil.clamp(voltage, ADJUSTING_SHOOT_MIN_VOLTAGE, ADJUSTING_SHOOT_MAX_VOLTAGE);
-        double rpm = voltageToRPM(voltage);
-
-        adjustShootBaseRPM = rpm;
+        
+        // LOOKUP TABLE: Get interpolated parameters for this distance
+        ShooterParameters params = SHOOTER_LOOKUP_TABLE.get(clampedTa);
+        
+        adjustShootBaseRPM = params.launcherRPM;
         adjustShootTimer.restart();   // reset and start the boost timer
 
         SmartDashboard.putNumber("AdjustingShoot/ta", ta);
-        SmartDashboard.putNumber("AdjustingShoot/voltage", voltage);
-        SmartDashboard.putNumber("AdjustingShoot/baseRPM", rpm);
+        SmartDashboard.putNumber("AdjustingShoot/clampedTa", clampedTa);
+        SmartDashboard.putNumber("AdjustingShoot/launcherRPM", params.launcherRPM);
+        SmartDashboard.putNumber("AdjustingShoot/feederRPM", params.feederRPM);
 
-        setLauncherRPM(rpm);
+        setLauncherRPM(params.launcherRPM);
       }),
       // Step 2: Wait 2 seconds for launcher to spin up
       new WaitCommand(2),
-      // Step 3: Start feeder at same RPM (re-read ta for latest value)
+      // Step 3: Start feeder using lookup table (re-read ta for latest value)
       new InstantCommand(() -> {
         double ta = vision.get_ta();
         double clampedTa = MathUtil.clamp(ta, ADJUSTING_SHOOT_TA_MIN, ADJUSTING_SHOOT_TA_MAX);
-        double t = (ADJUSTING_SHOOT_TA_MAX - clampedTa - 5) / (ADJUSTING_SHOOT_TA_MAX - ADJUSTING_SHOOT_TA_MIN);
-        double voltage = ADJUSTING_SHOOT_MIN_VOLTAGE + t * (ADJUSTING_SHOOT_MAX_VOLTAGE - ADJUSTING_SHOOT_MIN_VOLTAGE);
-        voltage = MathUtil.clamp(voltage, ADJUSTING_SHOOT_MIN_VOLTAGE, ADJUSTING_SHOOT_MAX_VOLTAGE);
-        double rpm = voltageToRPM(voltage);
+        
+        // LOOKUP TABLE: Get interpolated parameters for this distance
+        ShooterParameters params = SHOOTER_LOOKUP_TABLE.get(clampedTa);
 
         // Update base RPM to this value (in case ta changed during spin-up)
-        adjustShootBaseRPM = rpm;
+        adjustShootBaseRPM = params.launcherRPM;
         adjustShootTimer.restart();   // restart timer from feeder-start moment
 
-        SmartDashboard.putNumber("AdjustingShoot/voltage", voltage);
-        SmartDashboard.putNumber("AdjustingShoot/baseRPM", rpm);
+        SmartDashboard.putNumber("AdjustingShoot/ta", ta);
+        SmartDashboard.putNumber("AdjustingShoot/launcherRPM", params.launcherRPM);
+        SmartDashboard.putNumber("AdjustingShoot/feederRPM", params.feederRPM);
 
-        setFeederRPM(rpm);
+        setFeederRPM(params.feederRPM);
       }),
       // Step 4: Periodically re-apply RPM with a boost that increases over time.
       //         Every 20ms loop iteration, the target RPM = baseRPM + (elapsed seconds * boost/sec).

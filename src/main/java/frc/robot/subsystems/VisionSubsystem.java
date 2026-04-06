@@ -4,6 +4,7 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import frc.robot.Constants.VisionConstants;
 import frc.robot.subsystems.LimelightHelpers;
 
 public class VisionSubsystem extends SubsystemBase {
@@ -93,7 +94,27 @@ public class VisionSubsystem extends SubsystemBase {
         return ta;
     }
 
+    // ==================== PIPELINE SHORTCUTS ====================
 
+    /** Switch to AprilTag pipeline (pipeline 0) */
+    public void useAprilTagPipeline() {
+        setPipeline(VisionConstants.PIPELINE_APRILTAG);
+    }
+
+    /** Switch to Color Retroreflective pipeline (pipeline 1) */
+    public void useRetroReflectivePipeline() {
+        setPipeline(VisionConstants.PIPELINE_RETROREFLECTIVE);
+    }
+
+    /** Toggle between AprilTag and Retroreflective pipelines */
+    public void togglePipeline() {
+        double current = LimelightHelpers.getCurrentPipelineIndex("limelight");
+        if (current == VisionConstants.PIPELINE_APRILTAG) {
+            useRetroReflectivePipeline();
+        } else {
+            useAprilTagPipeline();
+        }
+    }
 
     // ==================== PERIODIC ====================
 
@@ -105,5 +126,6 @@ public class VisionSubsystem extends SubsystemBase {
         SmartDashboard.putNumber("Vision/TargetY", getTargetY());
         SmartDashboard.putNumber("Vision/AprilTagID", getAprilTagID());
         SmartDashboard.putString("Vision/DetectedClass", getDetectedClass());
+        SmartDashboard.putNumber("Vision/ActivePipeline", LimelightHelpers.getCurrentPipelineIndex("limelight"));
     }
 }

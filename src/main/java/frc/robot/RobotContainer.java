@@ -160,6 +160,9 @@ public class RobotContainer
     // D-pad Up = Adjusting shoot (voltage based on Limelight distance)
     m_secondaryDriverXbox.povUp().whileTrue(m_fuel.adjustingShoot(m_vision));
 
+    // D-pad Down = Toggle Limelight pipeline (AprilTag ↔ Retroreflective)
+    m_secondaryDriverXbox.povDown().onTrue(Commands.runOnce(() -> m_vision.togglePipeline()));
+
     
     
     //m_fuel.setDefaultCommand(m_fuel.intake());

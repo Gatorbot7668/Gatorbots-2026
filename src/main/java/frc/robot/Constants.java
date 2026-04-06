@@ -5,6 +5,8 @@
 package frc.robot;
 
 import edu.wpi.first.units.measure.LinearVelocity;
+import frc.robot.util.InterpolatingShooterMap;
+import frc.robot.util.ShooterParameters;
 
 import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Kilograms;
@@ -130,12 +132,56 @@ public final class Constants
     // The target RPM increases by this amount every second while the button is held.
     // TODO: Tune this value on the real robot!
     public static final double ADJUSTING_SHOOT_RPM_BOOST_PER_SECOND = 10.0;
+
+    /**
+     * Lookup table: Limelight ta (target area %) → Shooter Parameters (RPM)
+     * 
+     * HOW TO TUNE:
+     * 1. Position robot at a known distance from the hub
+     * 2. Note the ta value shown in SmartDashboard/Limelight
+     * 3. Manually test different RPM values until shots consistently score
+     * 4. Add that (ta, RPM) pair below using addSample()
+     * 5. Repeat at 10-15 different distances for good interpolation
+     * 
+     * ta is the target area as percentage of camera frame:
+     *   - Large ta (e.g., 10.0) = close to target = lower RPM needed
+     *   - Small ta (e.g., 0.5)  = far from target = higher RPM needed
+     */
+    public static final InterpolatingShooterMap SHOOTER_LOOKUP_TABLE = new InterpolatingShooterMap();
+
+    static {
+      // Format: SHOOTER_LOOKUP_TABLE.addSample(ta_value, new ShooterParameters(launcherRPM, feederRPM));
+      // Or use: new ShooterParameters(rpm) if both motors use the same speed
+      
+      // TODO: Replace these placeholder values with real tested values!
+      // These are estimates based on your current voltage-to-RPM conversion.
+      // Test and tune each point on the actual robot.
+      
+      SHOOTER_LOOKUP_TABLE.addSample(0.5,  new ShooterParameters(6784.0, 6784.0));  // Very far - max RPM
+      SHOOTER_LOOKUP_TABLE.addSample(1.0,  new ShooterParameters(6200.0, 6200.0));  // Far
+      SHOOTER_LOOKUP_TABLE.addSample(2.0,  new ShooterParameters(5500.0, 5500.0));  // Medium-far
+      SHOOTER_LOOKUP_TABLE.addSample(3.0,  new ShooterParameters(4900.0, 4900.0));  // Medium
+      SHOOTER_LOOKUP_TABLE.addSample(4.0,  new ShooterParameters(4400.0, 4400.0));  // Medium
+      SHOOTER_LOOKUP_TABLE.addSample(5.0,  new ShooterParameters(3900.0, 3900.0));  // Medium-close
+      SHOOTER_LOOKUP_TABLE.addSample(6.0,  new ShooterParameters(3500.0, 3500.0));  // Medium-close
+      SHOOTER_LOOKUP_TABLE.addSample(7.0,  new ShooterParameters(3200.0, 3200.0));  // Close
+      SHOOTER_LOOKUP_TABLE.addSample(8.0,  new ShooterParameters(2900.0, 2900.0));  // Close
+      SHOOTER_LOOKUP_TABLE.addSample(9.0,  new ShooterParameters(2600.0, 2600.0));  // Very close
+      SHOOTER_LOOKUP_TABLE.addSample(10.0, new ShooterParameters(2260.0, 2260.0));  // Very close - min RPM
+      
+      // Add more points as you test! Aim for 10-15 well-tested points.
+    }
   }
 
 
   /// PROBLEM: Fuelsubsystem and Shootersubsystem share the same physical motors... right now when we deploy both of them does not perform the job.
   /// Conflict. 
 
+  public static final class VisionConstants {
+    // Limelight pipeline indices — must match what's configured in the Limelight web UI
+    public static final int PIPELINE_APRILTAG = 0;
+    public static final int PIPELINE_RETROREFLECTIVE = 1;
+  }
 
   public static class OperatorConstants {
     public static final int kDriverControllerPort = 0;
