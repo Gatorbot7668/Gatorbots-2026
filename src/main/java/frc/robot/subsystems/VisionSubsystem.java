@@ -94,6 +94,26 @@ public class VisionSubsystem extends SubsystemBase {
         return ta;
     }
 
+    //  DISTANCE ESTIMATION
+    private static final double LIMELIGHT_HEIGHT_METERS = 0.38;        // Height of Limelight lens from floor
+    private static final double TARGET_HEIGHT_METERS = 1.124;           // Height of AprilTag center from floor
+    private static final double LIMELIGHT_MOUNT_ANGLE_DEGREES = 0.0; // Degrees tilted up from horizontal
+
+    /**
+     * Calculates horizontal distance to the target using ty (vertical angle).
+     * Uses: distance = (targetHeight - cameraHeight) / tan(mountAngle + ty)
+     * @return distance in meters, or -1.0 if no target is detected
+     */
+    public double getDistanceToTarget() {
+        if (!hasTarget()) return -1.0;
+
+        double ty = getTargetY();
+        double angleToTargetRadians = Math.toRadians(LIMELIGHT_MOUNT_ANGLE_DEGREES + ty);
+        double distance = (TARGET_HEIGHT_METERS - LIMELIGHT_HEIGHT_METERS) / Math.tan(angleToTargetRadians);
+
+        return distance;
+    }
+
     // ==================== PIPELINE SHORTCUTS ====================
 
     /** Switch to AprilTag pipeline (pipeline 0) */
@@ -124,6 +144,7 @@ public class VisionSubsystem extends SubsystemBase {
         SmartDashboard.putBoolean("Vision/HasTarget", hasTarget());
         SmartDashboard.putNumber("Vision/TargetX", getTargetX());
         SmartDashboard.putNumber("Vision/TargetY", getTargetY());
+        SmartDashboard.putNumber("Vision/DistanceMeters", getDistanceToTarget());
         SmartDashboard.putNumber("Vision/AprilTagID", getAprilTagID());
         SmartDashboard.putString("Vision/DetectedClass", getDetectedClass());
         SmartDashboard.putNumber("Vision/ActivePipeline", LimelightHelpers.getCurrentPipelineIndex("limelight"));

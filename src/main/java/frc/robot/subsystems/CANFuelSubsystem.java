@@ -14,7 +14,6 @@ import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.config.SparkFlexConfig;
 
 import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -34,10 +33,6 @@ public class CANFuelSubsystem extends SubsystemBase {
   private final SparkClosedLoopController feederPID;
   private final RelativeEncoder launcherEncoder;
   private final RelativeEncoder feederEncoder;
-
-  // State for adjustingShoot periodic RPM boost
-  private double adjustShootBaseRPM = 0;
-  private final Timer adjustShootTimer = new Timer();
 
   /** Creates a new CANFuelSubsystem using shared motors from ShooterSubsystem. */
   public CANFuelSubsystem() {
@@ -208,6 +203,59 @@ public class CANFuelSubsystem extends SubsystemBase {
   }
 
   /**
+   * ═══════════════════════════════════════════════════════════════════════════
+   * TESTING COMMAND: Use this to find the RPM values for your lookup table!
+   * ═══════════════════════════════════════════════════════════════════════════
+   * 
+   * HOW TO USE:
+   * 1. Add these TunableNumbers to SmartDashboard:
+   *    - "ShooterTest/launcherTargetRPM" (editable, default 3000)
+   *    - "ShooterTest/feederTargetRPM" (editable, default 3000)
+   * 2. Position robot at a specific distance from the hub
+   * 3. Note the "ShooterTest/currentTA" value shown on SmartDashboard
+   * 4. Hold the button to spin up and shoot
+   * 5. Adjust target RPM values until shots consistently score
+   * 6. Record: ta = X, launcherRPM = Y, feederRPM = Z
+   * 7. Move to a new distance and repeat
+   * 8. After testing 10-15 distances, add values to SHOOTER_LOOKUP_TABLE in Constants.java
+   * 
+   * @param vision The VisionSubsystem to read ta from (for display only)
+   */
+  public Command testShooterRPM(VisionSubsystem vision) {
+    return new SequentialCommandGroup(
+      // Step 1: Show current ta and start launcher at manual RPM
+      new InstantCommand(() -> {
+        double ta = vision.get_ta();
+        double launcherTargetRPM = kTestLauncherRPM.get();
+        
+        SmartDashboard.putNumber("ShooterTest/currentTA", ta);
+        
+        // Start launcher only
+        setLauncherRPM(launcherTargetRPM);
+      }),
+      
+      // Step 2: Wait 2 seconds for spin-up
+      new WaitCommand(2),
+      
+      // Step 3: Start feeder and keep running, continuously show ta and actual RPM
+      Commands.run(() -> {
+        double ta = vision.get_ta();
+        double launcherTargetRPM = kTestLauncherRPM.get();
+        double feederTargetRPM = kTestFeederRPM.get();
+        
+        // Display current values for recording
+        SmartDashboard.putNumber("ShooterTest/currentTA", ta);
+        SmartDashboard.putNumber("ShooterTest/launcherActualRPM", launcherEncoder.getVelocity());
+        SmartDashboard.putNumber("ShooterTest/feederActualRPM", feederEncoder.getVelocity());
+        
+        // Run motors at their respective target RPMs (reads from TunableNumber each loop)
+        setLauncherRPM(launcherTargetRPM);
+        setFeederRPM(feederTargetRPM);
+      })
+    ).finallyDo(() -> stop());
+  }
+
+  /**
    * Adjusts shoot RPM based on distance to target (using Limelight ta),
    * using a lookup table for empirically-tested RPM values.
    *
@@ -218,71 +266,55 @@ public class CANFuelSubsystem extends SubsystemBase {
    * The lookup table (SHOOTER_LOOKUP_TABLE in Constants) maps ta values
    * to tested RPM values and interpolates between sample points.
    *
-   * Uses closed-loop velocity PID so motors maintain speed even under load.
-   * Launcher spins up first, then feeder starts after 2 seconds.
-   * While held, the target RPM ramps up by ADJUSTING_SHOOT_RPM_BOOST_PER_SECOND
-   * every second to fight droop. Release the button to stop all motors.
+   * Uses closed-loop velocity PID (built into SparkFlex) so motors 
+   * maintain speed even under load - no manual boost needed.
+   *
+   * Sequence:
+   *   1. Read ta, lookup RPM, start launcher
+   *   2. Wait 2 seconds for launcher to spin up
+   *   3. Start feeder, continuously update both based on current ta
+   *   4. When button released, stop both motors
    *
    * @param vision The VisionSubsystem to read ta from
    */
   public Command adjustingShoot(VisionSubsystem vision) {
     return new SequentialCommandGroup(
       // Step 1: Read ta and lookup RPM from table, then start launcher only.
-      //         Also reset the boost timer.
       new InstantCommand(() -> {
         double ta = vision.get_ta();
         double clampedTa = MathUtil.clamp(ta, ADJUSTING_SHOOT_TA_MIN, ADJUSTING_SHOOT_TA_MAX);
         
         // LOOKUP TABLE: Get interpolated parameters for this distance
         ShooterParameters params = SHOOTER_LOOKUP_TABLE.get(clampedTa);
-        
-        adjustShootBaseRPM = params.launcherRPM;
-        adjustShootTimer.restart();   // reset and start the boost timer
 
         SmartDashboard.putNumber("AdjustingShoot/ta", ta);
-        SmartDashboard.putNumber("AdjustingShoot/clampedTa", clampedTa);
         SmartDashboard.putNumber("AdjustingShoot/launcherRPM", params.launcherRPM);
-        SmartDashboard.putNumber("AdjustingShoot/feederRPM", params.feederRPM);
 
+        // Start launcher only - PID maintains speed automatically
         setLauncherRPM(params.launcherRPM);
       }),
+      
       // Step 2: Wait 2 seconds for launcher to spin up
       new WaitCommand(2),
-      // Step 3: Start feeder using lookup table (re-read ta for latest value)
-      new InstantCommand(() -> {
+      
+      // Step 3: Start feeder and keep both running until button released.
+      //         Continuously re-reads ta so RPM adjusts if robot moves.
+      Commands.run(() -> {
         double ta = vision.get_ta();
         double clampedTa = MathUtil.clamp(ta, ADJUSTING_SHOOT_TA_MIN, ADJUSTING_SHOOT_TA_MAX);
         
-        // LOOKUP TABLE: Get interpolated parameters for this distance
+        // LOOKUP TABLE: Get interpolated parameters for current distance
         ShooterParameters params = SHOOTER_LOOKUP_TABLE.get(clampedTa);
-
-        // Update base RPM to this value (in case ta changed during spin-up)
-        adjustShootBaseRPM = params.launcherRPM;
-        adjustShootTimer.restart();   // restart timer from feeder-start moment
 
         SmartDashboard.putNumber("AdjustingShoot/ta", ta);
         SmartDashboard.putNumber("AdjustingShoot/launcherRPM", params.launcherRPM);
         SmartDashboard.putNumber("AdjustingShoot/feederRPM", params.feederRPM);
 
+        // PID maintains these speeds automatically
+        setLauncherRPM(params.launcherRPM);
         setFeederRPM(params.feederRPM);
-      }),
-      // Step 4: Periodically re-apply RPM with a boost that increases over time.
-      //         Every 20ms loop iteration, the target RPM = baseRPM + (elapsed seconds * boost/sec).
-      //         Capped at max RPM (NEO Vortex free speed) so we don't exceed motor limits.
-      Commands.run(() -> {
-        double elapsed = adjustShootTimer.get();
-        double boost = elapsed * ADJUSTING_SHOOT_RPM_BOOST_PER_SECOND;
-        double boostedRPM = Math.min(adjustShootBaseRPM + boost, NEO_VORTEX_FREE_SPEED_RPM);
-
-        SmartDashboard.putNumber("AdjustingShoot/boostedRPM", boostedRPM);
-
-        setLauncherRPM(boostedRPM);
-        setFeederRPM(boostedRPM);
       })
-    ).finallyDo(() -> {
-      adjustShootTimer.stop();
-      stop();
-    });
+    ).finallyDo(() -> stop());
   }
 
 

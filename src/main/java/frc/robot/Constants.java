@@ -133,6 +133,10 @@ public final class Constants
     // TODO: Tune this value on the real robot!
     public static final double ADJUSTING_SHOOT_RPM_BOOST_PER_SECOND = 10.0;
 
+    // Tunable RPM values for testShooterRPM() - adjust these on SmartDashboard during testing
+    public static final TunableNumber kTestLauncherRPM = new TunableNumber("ShooterTest/launcherTargetRPM", 3000);
+    public static final TunableNumber kTestFeederRPM = new TunableNumber("ShooterTest/feederTargetRPM", 3000);
+
     /**
      * Lookup table: Limelight ta (target area %) → Shooter Parameters (RPM)
      * 
