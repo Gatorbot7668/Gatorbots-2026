@@ -40,17 +40,17 @@ public class ShooterParameters {
     /**
      * Linearly interpolate between two ShooterParameters.
      * 
-     * Called automatically by InterpolatingShooterMap when ta falls between two samples.
+     * Called automatically by InterpolatingShooterMap when distance falls between two samples.
      * 
      * Example:
-     *   Sample 1: ta=2.0 → 5500 RPM (this)
-     *   Sample 2: ta=4.0 → 4400 RPM (other)
-     *   Robot sees ta=3.0 → t=0.5 (halfway)
-     *   Result: 4950 RPM (halfway between 5500 and 4400)
+     *   Sample 1: 2.0m -> 3500 RPM (this)
+     *   Sample 2: 3.0m -> 4400 RPM (other)
+     *   Robot sees 2.5m -> t=0.5 (halfway)
+     *   Result: 3950 RPM (halfway between 3500 and 4400)
      * 
      * @param other The other parameters to interpolate towards (the "ceiling" sample)
      * @param t Interpolation factor calculated by InterpolatingShooterMap:
-     *          t = (current_ta - floor_ta) / (ceiling_ta - floor_ta)
+     *          t = (current_dist - floor_dist) / (ceiling_dist - floor_dist)
      *          t=0.0 means use THIS sample's values
      *          t=1.0 means use OTHER sample's values
      *          t=0.5 means use values halfway between

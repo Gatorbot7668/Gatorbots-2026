@@ -29,10 +29,13 @@ import static frc.robot.Constants.FuelConstants.*;
 public class CANFuelSubsystem extends SubsystemBase {
   private final SparkFlex feederRoller;
   private final SparkFlex intakeLauncherRoller;
+  private final SparkFlex extraHopperRoller;
   private final SparkClosedLoopController launcherPID;
   private final SparkClosedLoopController feederPID;
+  private final SparkClosedLoopController hopperPID;
   private final RelativeEncoder launcherEncoder;
   private final RelativeEncoder feederEncoder;
+  private final RelativeEncoder hopperEncoder;
 
   /** Creates a new CANFuelSubsystem using shared motors from ShooterSubsystem. */
   public CANFuelSubsystem() {
@@ -51,6 +54,18 @@ public class CANFuelSubsystem extends SubsystemBase {
         .kV(kFeederFF.get());
     feederRoller.configure(feederConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
 
+    // --- Extra hopper motor (CAN 53) - closed-loop PID velocity control ---
+    extraHopperRoller = new SparkFlex(FuelConstants.EXTRA_HOPPER_MOTOR_ID, MotorType.kBrushless);
+    SparkFlexConfig hoppermotorConfig = new SparkFlexConfig();
+    hoppermotorConfig.inverted(true); // same direction as feeder (CAN 51)
+    hoppermotorConfig.smartCurrentLimit(FEEDER_MOTOR_CURRENT_LIMIT);
+    hoppermotorConfig.closedLoop
+        .pid(kHopperP.get(), kHopperI.get(), kHopperD.get())
+        .outputRange(-1, 1);
+    hoppermotorConfig.closedLoop.feedForward
+        .kV(kHopperFF.get());
+    extraHopperRoller.configure(hoppermotorConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+
     // --- Launcher config with closed-loop PID ---
     SparkFlexConfig launcherConfig = new SparkFlexConfig();
     launcherConfig.inverted(false);
@@ -65,8 +80,10 @@ public class CANFuelSubsystem extends SubsystemBase {
     // Grab PID controllers and encoders
     launcherPID = intakeLauncherRoller.getClosedLoopController();
     feederPID = feederRoller.getClosedLoopController();
+    hopperPID = extraHopperRoller.getClosedLoopController();
     launcherEncoder = intakeLauncherRoller.getEncoder();
     feederEncoder = feederRoller.getEncoder();
+    hopperEncoder = extraHopperRoller.getEncoder();
 
     // put default values for various fuel operations onto the dashboard
     SmartDashboard.putNumber("Intaking feeder roller value", INTAKING_FEEDER_VOLTAGE);
@@ -79,7 +96,7 @@ public class CANFuelSubsystem extends SubsystemBase {
   // --- Velocity helpers ---
 
   /**
-   * Convert a voltage target (0–12V) to an approximate RPM target.
+   * Convert a voltage target (0-12V) to an approximate RPM target.
    * Uses the NEO Vortex free speed as the scaling reference.
    */
   private double voltageToRPM(double voltage) {
@@ -100,6 +117,15 @@ public class CANFuelSubsystem extends SubsystemBase {
     feederPID.setSetpoint(rpm, ControlType.kVelocity);
   }
 
+  /**
+   * Set the hopper motor to a target RPM using closed-loop velocity control.
+   */
+  public void setHopperRPM(double rpm) {
+    hopperPID.setSetpoint(rpm, ControlType.kVelocity);
+  }
+
+  
+
   // A method to set the voltage of the intake roller (open-loop, used for intake only)
   public void setIntakeLauncherRoller(double voltage) {
     intakeLauncherRoller.setVoltage(voltage);
@@ -110,10 +136,16 @@ public class CANFuelSubsystem extends SubsystemBase {
     feederRoller.setVoltage(voltage);
   }
 
+  // A method to set the voltage of the hopper roller (open-loop, CAN 53)
+  public void setHopperRoller(double voltage) {
+    extraHopperRoller.setVoltage(voltage);
+  }
+
   // A method to stop the rollers
   public void stop() {
     feederRoller.setVoltage(0);
     intakeLauncherRoller.setVoltage(0);
+    extraHopperRoller.setVoltage(0);
   }
 
   /**
@@ -134,6 +166,13 @@ public class CANFuelSubsystem extends SubsystemBase {
     launcherUpdate.closedLoop.feedForward
         .kV(kLauncherFF.get());
     intakeLauncherRoller.configure(launcherUpdate, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
+
+    SparkFlexConfig hopperUpdate = new SparkFlexConfig();
+    hopperUpdate.closedLoop
+        .pid(kHopperP.get(), kHopperI.get(), kHopperD.get());
+    hopperUpdate.closedLoop.feedForward
+        .kV(kHopperFF.get());
+    extraHopperRoller.configure(hopperUpdate, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
   }
 
   // Command to run intake (pull game piece in)
@@ -141,8 +180,9 @@ public class CANFuelSubsystem extends SubsystemBase {
   public Command intake() {
     return this.startEnd(
       () -> {
-        setIntakeLauncherRoller(INTAKING_INTAKE_VOLTAGE);
-        setFeederRoller(INTAKING_FEEDER_VOLTAGE);
+        setLauncherRPM(voltageToRPM(INTAKING_INTAKE_VOLTAGE)); // use closed-loop velocity control for intake roller to maintain consistent speed under load
+        setFeederRPM(voltageToRPM(INTAKING_FEEDER_VOLTAGE));
+        setHopperRPM(voltageToRPM(INTAKING_HOPPER_VOLTAGE));
       },
       () -> stop()
     );
@@ -155,6 +195,7 @@ public class CANFuelSubsystem extends SubsystemBase {
       () -> {
         setIntakeLauncherRoller(-INTAKING_INTAKE_VOLTAGE);
         setFeederRoller(-INTAKING_FEEDER_VOLTAGE);
+        setHopperRoller(-INTAKING_HOPPER_VOLTAGE);
       },
       () -> stop()
     );
@@ -177,6 +218,7 @@ public class CANFuelSubsystem extends SubsystemBase {
     return this.startEnd(
     () -> {
       setFeederRPM(voltageToRPM(LAUNCHING_FEEDER_VOLTAGE));
+      setHopperRPM(voltageToRPM(LAUNCHING_HOPPER_VOLTAGE));
     },
     () -> stop()
     );
@@ -186,7 +228,10 @@ public class CANFuelSubsystem extends SubsystemBase {
     return new SequentialCommandGroup(
       new InstantCommand(() -> setLauncherRPM(voltageToRPM(LAUNCHING_LAUNCHER_VOLTAGE))),
       new WaitCommand(1),
-      new InstantCommand(() -> setFeederRPM(voltageToRPM(LAUNCHING_FEEDER_VOLTAGE))),
+      new InstantCommand(() -> {
+        setFeederRPM(voltageToRPM(LAUNCHING_FEEDER_VOLTAGE));
+        setHopperRPM(voltageToRPM(LAUNCHING_HOPPER_VOLTAGE));
+      }),
       new WaitCommand(3),
       new InstantCommand(() -> stop())
     );
@@ -197,38 +242,39 @@ public class CANFuelSubsystem extends SubsystemBase {
     () -> {
       setLauncherRPM(voltageToRPM(MAXIMUM_VOLTAGE));
       setFeederRPM(voltageToRPM(LAUNCHING_FEEDER_VOLTAGE));
+      setHopperRPM(voltageToRPM(LAUNCHING_HOPPER_VOLTAGE));
     },
     () -> stop()
     );
   }
 
   /**
-   * ═══════════════════════════════════════════════════════════════════════════
+   * ===========================================================================
    * TESTING COMMAND: Use this to find the RPM values for your lookup table!
-   * ═══════════════════════════════════════════════════════════════════════════
+   * ===========================================================================
    * 
    * HOW TO USE:
    * 1. Add these TunableNumbers to SmartDashboard:
    *    - "ShooterTest/launcherTargetRPM" (editable, default 3000)
    *    - "ShooterTest/feederTargetRPM" (editable, default 3000)
-   * 2. Position robot at a specific distance from the hub
-   * 3. Note the "ShooterTest/currentTA" value shown on SmartDashboard
+   * 2. Position robot at a specific distance from the target
+   * 3. Note the "ShooterTest/currentDistance" value shown on SmartDashboard
    * 4. Hold the button to spin up and shoot
    * 5. Adjust target RPM values until shots consistently score
-   * 6. Record: ta = X, launcherRPM = Y, feederRPM = Z
+   * 6. Record: distance = X meters, launcherRPM = Y, feederRPM = Z
    * 7. Move to a new distance and repeat
    * 8. After testing 10-15 distances, add values to SHOOTER_LOOKUP_TABLE in Constants.java
    * 
-   * @param vision The VisionSubsystem to read ta from (for display only)
+   * @param vision The VisionSubsystem to read distance from (for display only)
    */
   public Command testShooterRPM(VisionSubsystem vision) {
     return new SequentialCommandGroup(
-      // Step 1: Show current ta and start launcher at manual RPM
+      // Step 1: Show current distance and start launcher at manual RPM
       new InstantCommand(() -> {
-        double ta = vision.get_ta();
+        double distance = vision.getDistanceToTarget();
         double launcherTargetRPM = kTestLauncherRPM.get();
         
-        SmartDashboard.putNumber("ShooterTest/currentTA", ta);
+        SmartDashboard.putNumber("ShooterTest/currentDistance", distance);
         
         // Start launcher only
         setLauncherRPM(launcherTargetRPM);
@@ -237,14 +283,14 @@ public class CANFuelSubsystem extends SubsystemBase {
       // Step 2: Wait 2 seconds for spin-up
       new WaitCommand(2),
       
-      // Step 3: Start feeder and keep running, continuously show ta and actual RPM
+      // Step 3: Start feeder and keep running, continuously show distance and actual RPM
       Commands.run(() -> {
-        double ta = vision.get_ta();
+        double distance = vision.getDistanceToTarget();
         double launcherTargetRPM = kTestLauncherRPM.get();
         double feederTargetRPM = kTestFeederRPM.get();
         
         // Display current values for recording
-        SmartDashboard.putNumber("ShooterTest/currentTA", ta);
+        SmartDashboard.putNumber("ShooterTest/currentDistance", distance);
         SmartDashboard.putNumber("ShooterTest/launcherActualRPM", launcherEncoder.getVelocity());
         SmartDashboard.putNumber("ShooterTest/feederActualRPM", feederEncoder.getVelocity());
         
@@ -256,38 +302,38 @@ public class CANFuelSubsystem extends SubsystemBase {
   }
 
   /**
-   * Adjusts shoot RPM based on distance to target (using Limelight ta),
+   * Adjusts shoot RPM based on distance to target (calculated from Limelight ty),
    * using a lookup table for empirically-tested RPM values.
    *
-   * ta is the target area as a percentage of the camera frame:
-   *   - Large ta = close to target = less RPM needed
-   *   - Small ta = far from target = more RPM needed
+   * Distance is calculated using trigonometry from the Limelight's ty angle:
+   *   - Large distance = far from target = more RPM needed
+   *   - Small distance = close to target = less RPM needed
    *
-   * The lookup table (SHOOTER_LOOKUP_TABLE in Constants) maps ta values
+   * The lookup table (SHOOTER_LOOKUP_TABLE in Constants) maps distance (meters)
    * to tested RPM values and interpolates between sample points.
    *
    * Uses closed-loop velocity PID (built into SparkFlex) so motors 
    * maintain speed even under load - no manual boost needed.
    *
    * Sequence:
-   *   1. Read ta, lookup RPM, start launcher
+   *   1. Read distance, lookup RPM, start launcher
    *   2. Wait 2 seconds for launcher to spin up
-   *   3. Start feeder, continuously update both based on current ta
+   *   3. Start feeder, continuously update both based on current distance
    *   4. When button released, stop both motors
    *
-   * @param vision The VisionSubsystem to read ta from
+   * @param vision The VisionSubsystem to read distance from
    */
   public Command adjustingShoot(VisionSubsystem vision) {
     return new SequentialCommandGroup(
-      // Step 1: Read ta and lookup RPM from table, then start launcher only.
+      // Step 1: Read distance and lookup RPM from table, then start launcher only.
       new InstantCommand(() -> {
-        double ta = vision.get_ta();
-        double clampedTa = MathUtil.clamp(ta, ADJUSTING_SHOOT_TA_MIN, ADJUSTING_SHOOT_TA_MAX);
+        double distance = vision.getDistanceToTarget();
+        double clampedDist = MathUtil.clamp(distance, ADJUSTING_SHOOT_DIST_MIN, ADJUSTING_SHOOT_DIST_MAX);
         
         // LOOKUP TABLE: Get interpolated parameters for this distance
-        ShooterParameters params = SHOOTER_LOOKUP_TABLE.get(clampedTa);
+        ShooterParameters params = SHOOTER_LOOKUP_TABLE.get(clampedDist);
 
-        SmartDashboard.putNumber("AdjustingShoot/ta", ta);
+        SmartDashboard.putNumber("AdjustingShoot/distance", distance);
         SmartDashboard.putNumber("AdjustingShoot/launcherRPM", params.launcherRPM);
 
         // Start launcher only - PID maintains speed automatically
@@ -298,21 +344,22 @@ public class CANFuelSubsystem extends SubsystemBase {
       new WaitCommand(2),
       
       // Step 3: Start feeder and keep both running until button released.
-      //         Continuously re-reads ta so RPM adjusts if robot moves.
+      //         Continuously re-reads distance so RPM adjusts if robot moves.
       Commands.run(() -> {
-        double ta = vision.get_ta();
-        double clampedTa = MathUtil.clamp(ta, ADJUSTING_SHOOT_TA_MIN, ADJUSTING_SHOOT_TA_MAX);
+        double distance = vision.getDistanceToTarget();
+        double clampedDist = MathUtil.clamp(distance, ADJUSTING_SHOOT_DIST_MIN, ADJUSTING_SHOOT_DIST_MAX);
         
         // LOOKUP TABLE: Get interpolated parameters for current distance
-        ShooterParameters params = SHOOTER_LOOKUP_TABLE.get(clampedTa);
+        ShooterParameters params = SHOOTER_LOOKUP_TABLE.get(clampedDist);
 
-        SmartDashboard.putNumber("AdjustingShoot/ta", ta);
+        SmartDashboard.putNumber("AdjustingShoot/distance", distance);
         SmartDashboard.putNumber("AdjustingShoot/launcherRPM", params.launcherRPM);
         SmartDashboard.putNumber("AdjustingShoot/feederRPM", params.feederRPM);
 
         // PID maintains these speeds automatically
         setLauncherRPM(params.launcherRPM);
         setFeederRPM(params.feederRPM);
+        setHopperRPM(voltageToRPM(LAUNCHING_HOPPER_VOLTAGE));
       })
     ).finallyDo(() -> stop());
   }
@@ -330,6 +377,7 @@ public class CANFuelSubsystem extends SubsystemBase {
       new WaitCommand(2),
       new InstantCommand(() -> {
         setFeederRPM(voltageToRPM(FERRY_FEEDER_VOLTAGE));
+        setHopperRPM(voltageToRPM(LAUNCHING_HOPPER_VOLTAGE));
       }),
       Commands.run(() -> {})
     ).finallyDo(() -> stop());
@@ -337,7 +385,7 @@ public class CANFuelSubsystem extends SubsystemBase {
 
     public Command stopCommand() {
     return this.runOnce(() -> {
-      // Only set leader motor — follower mirrors it automatically
+      // Only set leader motor - follower mirrors it automatically
       stop();
     });
   }
@@ -347,5 +395,6 @@ public class CANFuelSubsystem extends SubsystemBase {
     // Display actual motor velocities for PID tuning
     SmartDashboard.putNumber("Shooter/Launcher/actualRPM", launcherEncoder.getVelocity());
     SmartDashboard.putNumber("Shooter/Feeder/actualRPM", feederEncoder.getVelocity());
+    SmartDashboard.putNumber("Shooter/Hopper/actualRPM", hopperEncoder.getVelocity());
   }
 }

@@ -111,6 +111,9 @@ public class VisionSubsystem extends SubsystemBase {
         double angleToTargetRadians = Math.toRadians(LIMELIGHT_MOUNT_ANGLE_DEGREES + ty);
         double distance = (TARGET_HEIGHT_METERS - LIMELIGHT_HEIGHT_METERS) / Math.tan(angleToTargetRadians);
 
+        SmartDashboard.putNumber("Vision/ty", ty);
+        SmartDashboard.putNumber("Vision/angletoTargetRadians", angleToTargetRadians);
+        SmartDashboard.putNumber("Vision/DistanceMeters", distance);
         return distance;
     }
 

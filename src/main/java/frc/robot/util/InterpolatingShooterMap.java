@@ -10,45 +10,43 @@ import java.util.TreeMap;
 /**
  * An interpolating lookup table for shooter parameters.
  * 
- * Maps distance (or ta from Limelight) to ShooterParameters.
+ * Maps distance (meters, calculated from Limelight ty) to ShooterParameters.
  * When querying a value between sample points, it linearly 
  * interpolates all parameters.
  * 
  * <p><b>HOW THE INTERPOLATION CHAIN WORKS:</b>
  * <pre>
- * ┌─────────────────────────────────────────────────────────────────────────┐
- * │ STEP 1: CANFuelSubsystem calls SHOOTER_LOOKUP_TABLE.get(ta)             │
- * │         where ta = current Limelight target area (e.g., 3.0)            │
- * │                                                                         │
- * │ STEP 2: InterpolatingShooterMap.get(3.0) runs:                          │
- * │         - Finds floor sample: ta=2.0 → ShooterParameters(5500, 5500)    │
- * │         - Finds ceiling sample: ta=5.0 → ShooterParameters(3900, 3900)  │
- * │         - Calculates t = (3.0-2.0)/(5.0-2.0) = 0.333 (33% of the way)   │
- * │         - Calls: floor.interpolate(ceiling, 0.333)                      │
- * │                                                                         │
- * │ STEP 3: ShooterParameters.interpolate() runs:                           │
- * │         - Calls lerp(5500, 3900, 0.333) for launcherRPM                 │
- * │         - Calls lerp(5500, 3900, 0.333) for feederRPM                   │
- * │                                                                         │
- * │ STEP 4: lerp() does the math:                                           │
- * │         - 5500 + (3900 - 5500) * 0.333 = 4967 RPM                       │
- * │                                                                         │
- * │ STEP 5: Returns ShooterParameters(4967, 4967) back up the chain         │
- * │         CANFuelSubsystem uses this to call setLauncherRPM(4967)         │
- * └─────────────────────────────────────────────────────────────────────────┘
+ * STEP 1: CANFuelSubsystem calls SHOOTER_LOOKUP_TABLE.get(distance)
+ *         where distance = meters to target from VisionSubsystem.getDistanceToTarget()
+ *
+ * STEP 2: InterpolatingShooterMap.get(2.5) runs:
+ *         - Finds floor sample: 2.0m -> ShooterParameters(3500, 3500)
+ *         - Finds ceiling sample: 3.0m -> ShooterParameters(4400, 4400)
+ *         - Calculates t = (2.5-2.0)/(3.0-2.0) = 0.5 (50% of the way)
+ *         - Calls: floor.interpolate(ceiling, 0.5)
+ *
+ * STEP 3: ShooterParameters.interpolate() runs:
+ *         - Calls lerp(3500, 4400, 0.5) for launcherRPM
+ *         - Calls lerp(3500, 4400, 0.5) for feederRPM
+ *
+ * STEP 4: lerp() does the math:
+ *         - 3500 + (4400 - 3500) * 0.5 = 3950 RPM
+ *
+ * STEP 5: Returns ShooterParameters(3950, 3950) back up the chain
+ *         CANFuelSubsystem uses this to call setLauncherRPM(3950)
  * </pre>
  * 
  * <p>Usage:
  * <pre>
  * InterpolatingShooterMap map = new InterpolatingShooterMap();
  * 
- * // Add samples from testing (ta_value, parameters)
- * map.addSample(0.5, new ShooterParameters(6500));  // far away
- * map.addSample(2.0, new ShooterParameters(5000));  // medium
- * map.addSample(10.0, new ShooterParameters(2500)); // close
+ * // Add samples from testing (distance_meters, parameters)
+ * map.addSample(0.5, new ShooterParameters(2260, 2260));  // very close
+ * map.addSample(2.5, new ShooterParameters(3900, 3900));  // medium
+ * map.addSample(5.0, new ShooterParameters(6784, 6784));  // very far
  * 
  * // Query - automatically interpolates between points
- * ShooterParameters params = map.get(1.25); // interpolates between 0.5 and 2.0
+ * ShooterParameters params = map.get(1.5); // interpolates between 0.5 and 2.5
  * setLauncherRPM(params.launcherRPM);
  * </pre>
  * 
@@ -60,7 +58,7 @@ public class InterpolatingShooterMap {
 
     /**
      * Add a sample point to the lookup table.
-     * @param key The input value (ta from Limelight, or distance in meters)
+     * @param key The distance in meters (from VisionSubsystem.getDistanceToTarget())
      * @param parameters The shooter parameters that work at this distance
      */
     public void addSample(double key, ShooterParameters parameters) {
@@ -101,17 +99,17 @@ public class InterpolatingShooterMap {
             return floor.getValue(); // Above maximum - use highest sample
         }
 
-        // ═══════════════════════════════════════════════════════════════════
+        // ==================================================================
         // INTERPOLATION HAPPENS HERE:
         // 
-        // 1. Calculate t = how far between floor and ceiling is our key?
-        //    Example: key=3.0, floor=2.0, ceiling=5.0
-        //             t = (3.0 - 2.0) / (5.0 - 2.0) = 0.333 (33% of the way)
+        // 1. Calculate t = how far between floor and ceiling is our distance?
+        //    Example: distance=2.5m, floor=2.0m, ceiling=3.0m
+        //             t = (2.5 - 2.0) / (3.0 - 2.0) = 0.5 (50% of the way)
         //
         // 2. Call interpolate() which calls lerp() to blend the RPM values:
         //    launcherRPM = floorRPM + (ceilingRPM - floorRPM) * t
-        //    Example: 5500 + (3900 - 5500) * 0.333 = 4967 RPM
-        // ═══════════════════════════════════════════════════════════════════
+        //    Example: 3500 + (4400 - 3500) * 0.5 = 3950 RPM
+        // ==================================================================
         double t = (key - floor.getKey()) / (ceiling.getKey() - floor.getKey());
         
         // This calls ShooterParameters.interpolate() → which calls lerp() → returns blended RPM
@@ -133,14 +131,14 @@ public class InterpolatingShooterMap {
     }
 
     /**
-     * @return The minimum key (closest distance / largest ta)
+     * @return The minimum key (closest distance)
      */
     public double getMinKey() {
         return samples.firstKey();
     }
 
     /**
-     * @return The maximum key (farthest distance / smallest ta)
+     * @return The maximum key (farthest distance)
      */
     public double getMaxKey() {
         return samples.lastKey();

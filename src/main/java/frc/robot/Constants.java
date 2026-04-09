@@ -90,30 +90,40 @@ public final class Constants
     public static final int LAUNCHER_MOTOR_CURRENT_LIMIT = 60;
     public static final int LEAD_shooterMotorID = 52; // RIGHT
     public static final int FOLLOW_shooterMotorID = 51; // LEFT
+    public static final int EXTRA_HOPPER_MOTOR_ID = 53; // Extra motor in the hopper, follows 51 (same direction, at the same time)
 
     // NEO Vortex free speed is ~6784 RPM. We use this to convert voltage targets to RPM targets.
     public static final double NEO_VORTEX_FREE_SPEED_RPM = 6784.0;
 
     // PID + FF gains for launcher velocity control (tunable via SmartDashboard)
-    public static final TunableNumber kLauncherP  = new TunableNumber("Shooter/Launcher/kP", 0.0005);
+    public static final TunableNumber kLauncherP  = new TunableNumber("Shooter/Launcher/kP", 0.05);
     public static final TunableNumber kLauncherI  = new TunableNumber("Shooter/Launcher/kI", 0.0);
     public static final TunableNumber kLauncherD  = new TunableNumber("Shooter/Launcher/kD", 0.0);
     public static final TunableNumber kLauncherFF = new TunableNumber("Shooter/Launcher/kFF", 1.0 / NEO_VORTEX_FREE_SPEED_RPM);
 
     // PID + FF gains for feeder velocity control (tunable via SmartDashboard)
-    public static final TunableNumber kFeederP  = new TunableNumber("Shooter/Feeder/kP", 0.0005);
+    public static final TunableNumber kFeederP  = new TunableNumber("Shooter/Feeder/kP", 0.05);
     public static final TunableNumber kFeederI  = new TunableNumber("Shooter/Feeder/kI", 0.0);
     public static final TunableNumber kFeederD  = new TunableNumber("Shooter/Feeder/kD", 0.0);
     public static final TunableNumber kFeederFF = new TunableNumber("Shooter/Feeder/kFF", 1.0 / NEO_VORTEX_FREE_SPEED_RPM);
+
     // right niw kFF = 1.0 / 6784 ≈ 0.000147, which means that for every 1 RPM, the motor is required to apply 0.0000147 of the motors 
+
+    // PID + FF gains for hopper velocity control (tunable via SmartDashboard)
+    public static final TunableNumber kHopperP  = new TunableNumber("Shooter/Hopper/kP", 0.05);
+    public static final TunableNumber kHopperI  = new TunableNumber("Shooter/Hopper/kI", 0.0);
+    public static final TunableNumber kHopperD  = new TunableNumber("Shooter/Hopper/kD", 0.0);
+    public static final TunableNumber kHopperFF = new TunableNumber("Shooter/Hopper/kFF", 1.0 / NEO_VORTEX_FREE_SPEED_RPM);
 
     // Voltage values for various fuel operations. These values may need to be tuned
     // based on exact robot construction.
     // See the Software Guide for tuning information
     public static final double INTAKING_FEEDER_VOLTAGE = -5;
     public static final double INTAKING_INTAKE_VOLTAGE = 5;
+    public static final double INTAKING_HOPPER_VOLTAGE = -5;  // Hopper roller voltage during intake (same direction as feeder)
     public static final double LAUNCHING_FEEDER_VOLTAGE = 11;
-        public static final double LAUNCHING_LAUNCHER_VOLTAGE = 11;
+    public static final double LAUNCHING_LAUNCHER_VOLTAGE = 11;
+    public static final double LAUNCHING_HOPPER_VOLTAGE = 5;
     public static final double FERRY_FEEDER_VOLTAGE = 4;
     public static final double FERRY_LAUNCHER_VOLTAGE = 5;
     public static final double SPIN_UP_FEEDER_VOLTAGE = -6;
@@ -121,12 +131,10 @@ public final class Constants
     public static final double MAXIMUM_VOLTAGE = 12;
 
     // Adjusting shoot constants
-    // ta range: the expected min/max target area values (percentage of image)
-    // When ta is at or below MIN, we use max shoot voltage; at or above MAX, we use min shoot voltage
-    public static final double ADJUSTING_SHOOT_TA_MIN = 0.5;   // far away
-    public static final double ADJUSTING_SHOOT_TA_MAX = 10.0;  // very close
-    public static final double ADJUSTING_SHOOT_MIN_VOLTAGE = 4.0;   // close range
-    public static final double ADJUSTING_SHOOT_MAX_VOLTAGE = 12.0;  // far range
+    // Distance range (meters): the expected min/max distances for the lookup table
+    // When distance is at or below MIN, we're very close; at or above MAX, we're very far
+    public static final double ADJUSTING_SHOOT_DIST_MIN = 0.5;   // very close (meters)
+    public static final double ADJUSTING_SHOOT_DIST_MAX = 5.0;   // very far (meters)
 
     // RPM boost applied periodically during adjustingShoot to compensate for voltage droop.
     // The target RPM increases by this amount every second while the button is held.
@@ -138,40 +146,38 @@ public final class Constants
     public static final TunableNumber kTestFeederRPM = new TunableNumber("ShooterTest/feederTargetRPM", 3000);
 
     /**
-     * Lookup table: Limelight ta (target area %) → Shooter Parameters (RPM)
+     * Lookup table: Distance (meters) -> Shooter Parameters (RPM)
      * 
      * HOW TO TUNE:
-     * 1. Position robot at a known distance from the hub
-     * 2. Note the ta value shown in SmartDashboard/Limelight
+     * 1. Position robot at a known distance from the target
+     * 2. Note the "Vision/DistanceMeters" value shown on SmartDashboard
      * 3. Manually test different RPM values until shots consistently score
-     * 4. Add that (ta, RPM) pair below using addSample()
+     * 4. Add that (distance, RPM) pair below using addSample()
      * 5. Repeat at 10-15 different distances for good interpolation
      * 
-     * ta is the target area as percentage of camera frame:
-     *   - Large ta (e.g., 10.0) = close to target = lower RPM needed
-     *   - Small ta (e.g., 0.5)  = far from target = higher RPM needed
+     * distance is in meters:
+     *   - Large distance (e.g., 5.0m) = far from target = higher RPM needed
+     *   - Small distance (e.g., 0.5m) = close to target = lower RPM needed
      */
     public static final InterpolatingShooterMap SHOOTER_LOOKUP_TABLE = new InterpolatingShooterMap();
 
     static {
-      // Format: SHOOTER_LOOKUP_TABLE.addSample(ta_value, new ShooterParameters(launcherRPM, feederRPM));
-      // Or use: new ShooterParameters(rpm) if both motors use the same speed
+      // Format: SHOOTER_LOOKUP_TABLE.addSample(distance_meters, new ShooterParameters(launcherRPM, feederRPM));
       
       // TODO: Replace these placeholder values with real tested values!
-      // These are estimates based on your current voltage-to-RPM conversion.
-      // Test and tune each point on the actual robot.
+      // Use testShooterRPM() command to find correct RPM at each distance.
+      // The distance is calculated from ty using trigonometry (see VisionSubsystem.getDistanceToTarget())
       
-      SHOOTER_LOOKUP_TABLE.addSample(0.5,  new ShooterParameters(6784.0, 6784.0));  // Very far - max RPM
-      SHOOTER_LOOKUP_TABLE.addSample(1.0,  new ShooterParameters(6200.0, 6200.0));  // Far
-      SHOOTER_LOOKUP_TABLE.addSample(2.0,  new ShooterParameters(5500.0, 5500.0));  // Medium-far
-      SHOOTER_LOOKUP_TABLE.addSample(3.0,  new ShooterParameters(4900.0, 4900.0));  // Medium
-      SHOOTER_LOOKUP_TABLE.addSample(4.0,  new ShooterParameters(4400.0, 4400.0));  // Medium
-      SHOOTER_LOOKUP_TABLE.addSample(5.0,  new ShooterParameters(3900.0, 3900.0));  // Medium-close
-      SHOOTER_LOOKUP_TABLE.addSample(6.0,  new ShooterParameters(3500.0, 3500.0));  // Medium-close
-      SHOOTER_LOOKUP_TABLE.addSample(7.0,  new ShooterParameters(3200.0, 3200.0));  // Close
-      SHOOTER_LOOKUP_TABLE.addSample(8.0,  new ShooterParameters(2900.0, 2900.0));  // Close
-      SHOOTER_LOOKUP_TABLE.addSample(9.0,  new ShooterParameters(2600.0, 2600.0));  // Very close
-      SHOOTER_LOOKUP_TABLE.addSample(10.0, new ShooterParameters(2260.0, 2260.0));  // Very close - min RPM
+      SHOOTER_LOOKUP_TABLE.addSample(0.5,  new ShooterParameters(2260.0, 2260.0));  // Very close - min RPM
+      SHOOTER_LOOKUP_TABLE.addSample(1.0,  new ShooterParameters(2600.0, 2600.0));  // Close
+      SHOOTER_LOOKUP_TABLE.addSample(1.5,  new ShooterParameters(3200.0, 3200.0));  // Close
+      SHOOTER_LOOKUP_TABLE.addSample(2.0,  new ShooterParameters(3500.0, 3500.0));  // Medium-close
+      SHOOTER_LOOKUP_TABLE.addSample(2.5,  new ShooterParameters(3900.0, 3900.0));  // Medium
+      SHOOTER_LOOKUP_TABLE.addSample(3.0,  new ShooterParameters(4400.0, 4400.0));  // Medium
+      SHOOTER_LOOKUP_TABLE.addSample(3.5,  new ShooterParameters(4900.0, 4900.0));  // Medium-far
+      SHOOTER_LOOKUP_TABLE.addSample(4.0,  new ShooterParameters(5500.0, 5500.0));  // Far
+      SHOOTER_LOOKUP_TABLE.addSample(4.5,  new ShooterParameters(6200.0, 6200.0));  // Far
+      SHOOTER_LOOKUP_TABLE.addSample(5.0,  new ShooterParameters(6784.0, 6784.0));  // Very far - max RPM
       
       // Add more points as you test! Aim for 10-15 well-tested points.
     }
