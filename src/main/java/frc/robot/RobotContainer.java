@@ -243,11 +243,12 @@ public class RobotContainer
     if (frc.robot.Constants.FuelConstants.kLauncherP.hasChanged()
         || frc.robot.Constants.FuelConstants.kLauncherI.hasChanged()
         || frc.robot.Constants.FuelConstants.kLauncherD.hasChanged()
-        || frc.robot.Constants.FuelConstants.kLauncherFF.hasChanged()
         || frc.robot.Constants.FuelConstants.kFeederP.hasChanged()
         || frc.robot.Constants.FuelConstants.kFeederI.hasChanged()
         || frc.robot.Constants.FuelConstants.kFeederD.hasChanged()
-        || frc.robot.Constants.FuelConstants.kFeederFF.hasChanged()) {
+        || frc.robot.Constants.FuelConstants.kHopperP.hasChanged()
+        || frc.robot.Constants.FuelConstants.kHopperI.hasChanged()
+        || frc.robot.Constants.FuelConstants.kHopperD.hasChanged()) {
       m_fuel.reconfigurePID();
     }
   }

@@ -5,15 +5,14 @@
 package frc.robot.subsystems;
 
 import com.revrobotics.RelativeEncoder;
-import com.revrobotics.spark.SparkBase.ControlType;
 import com.revrobotics.spark.SparkBase.PersistMode;
 import com.revrobotics.spark.SparkBase.ResetMode;
-import com.revrobotics.spark.SparkClosedLoopController;
 import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.config.SparkFlexConfig;
 
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -30,12 +29,25 @@ public class CANFuelSubsystem extends SubsystemBase {
   private final SparkFlex feederRoller;
   private final SparkFlex intakeLauncherRoller;
   private final SparkFlex extraHopperRoller;
-  private final SparkClosedLoopController launcherPID;
-  private final SparkClosedLoopController feederPID;
-  private final SparkClosedLoopController hopperPID;
   private final RelativeEncoder launcherEncoder;
   private final RelativeEncoder feederEncoder;
   private final RelativeEncoder hopperEncoder;
+
+  // WPILib software PID controllers (run on the roboRIO in periodic())
+  private final PIDController launcherPIDController;
+  private final PIDController feederPIDController;
+  private final PIDController hopperPIDController;
+
+  // Target RPM for each motor (0 = stopped / open-loop mode)
+  private double launcherTargetRPM = 0;
+  private double feederTargetRPM = 0;
+  private double hopperTargetRPM = 0;
+
+  // When true, periodic() runs the PID loop for that motor.
+  // When false, the motor is in open-loop voltage mode (e.g., during intake or stopped).
+  private boolean launcherPIDEnabled = false;
+  private boolean feederPIDEnabled = false;
+  private boolean hopperPIDEnabled = false;
 
   /** Creates a new CANFuelSubsystem using shared motors from ShooterSubsystem. */
   public CANFuelSubsystem() {
@@ -43,47 +55,37 @@ public class CANFuelSubsystem extends SubsystemBase {
     intakeLauncherRoller = new SparkFlex(FuelConstants.LEAD_shooterMotorID, MotorType.kBrushless);
     feederRoller = new SparkFlex(FuelConstants.FOLLOW_shooterMotorID, MotorType.kBrushless);
 
-    // --- Feeder config with closed-loop PID ---
+    // --- Feeder config (NO closed-loop PID on SparkFlex — PID runs on roboRIO) ---
     SparkFlexConfig feederConfig = new SparkFlexConfig();
     feederConfig.inverted(true);
     feederConfig.smartCurrentLimit(FEEDER_MOTOR_CURRENT_LIMIT);
-    feederConfig.closedLoop
-        .pid(kFeederP.get(), kFeederI.get(), kFeederD.get())
-        .outputRange(-1, 1);
-    feederConfig.closedLoop.feedForward
-        .kV(kFeederFF.get());
     feederRoller.configure(feederConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
 
-    // --- Extra hopper motor (CAN 53) - closed-loop PID velocity control ---
+    // --- Extra hopper motor (CAN 53) ---
     extraHopperRoller = new SparkFlex(FuelConstants.EXTRA_HOPPER_MOTOR_ID, MotorType.kBrushless);
     SparkFlexConfig hoppermotorConfig = new SparkFlexConfig();
     hoppermotorConfig.inverted(true); // same direction as feeder (CAN 51)
     hoppermotorConfig.smartCurrentLimit(FEEDER_MOTOR_CURRENT_LIMIT);
-    hoppermotorConfig.closedLoop
-        .pid(kHopperP.get(), kHopperI.get(), kHopperD.get())
-        .outputRange(-1, 1);
-    hoppermotorConfig.closedLoop.feedForward
-        .kV(kHopperFF.get());
     extraHopperRoller.configure(hoppermotorConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
 
-    // --- Launcher config with closed-loop PID ---
+    // --- Launcher config ---
     SparkFlexConfig launcherConfig = new SparkFlexConfig();
     launcherConfig.inverted(false);
     launcherConfig.smartCurrentLimit(LAUNCHER_MOTOR_CURRENT_LIMIT);
-    launcherConfig.closedLoop
-        .pid(kLauncherP.get(), kLauncherI.get(), kLauncherD.get())
-        .outputRange(-1, 1);
-    launcherConfig.closedLoop.feedForward
-        .kV(kLauncherFF.get());
     intakeLauncherRoller.configure(launcherConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
 
-    // Grab PID controllers and encoders
-    launcherPID = intakeLauncherRoller.getClosedLoopController();
-    feederPID = feederRoller.getClosedLoopController();
-    hopperPID = extraHopperRoller.getClosedLoopController();
+    // Grab encoders (for reading actual RPM in periodic())
     launcherEncoder = intakeLauncherRoller.getEncoder();
     feederEncoder = feederRoller.getEncoder();
     hopperEncoder = extraHopperRoller.getEncoder();
+
+    // Create WPILib PID controllers for each motor
+    // These run on the roboRIO at 50Hz (every 20ms) in periodic()
+    launcherPIDController = new PIDController(kLauncherP.get(), kLauncherI.get(), kLauncherD.get());
+    feederPIDController   = new PIDController(kFeederP.get(), kFeederI.get(), kFeederD.get());
+    hopperPIDController   = new PIDController(kHopperP.get(), kHopperI.get(), kHopperD.get());
+
+    // Allow continuous wrapping is not needed for velocity — PID will just track RPM
 
     // put default values for various fuel operations onto the dashboard
     SmartDashboard.putNumber("Intaking feeder roller value", INTAKING_FEEDER_VOLTAGE);
@@ -104,24 +106,31 @@ public class CANFuelSubsystem extends SubsystemBase {
   }
 
   /**
-   * Set the launcher motor to a target RPM using closed-loop velocity control.
+   * Set the launcher motor to a target RPM using software PID (runs in periodic()).
+   * The PID loop in periodic() will continuously adjust voltage to reach this RPM.
    */
   public void setLauncherRPM(double rpm) {
-    launcherPID.setSetpoint(rpm, ControlType.kVelocity);
+    launcherTargetRPM = rpm;
+    launcherPIDEnabled = true;
+    launcherPIDController.reset(); // clear accumulated I-term from previous run
   }
 
   /**
-   * Set the feeder motor to a target RPM using closed-loop velocity control.
+   * Set the feeder motor to a target RPM using software PID (runs in periodic()).
    */
   public void setFeederRPM(double rpm) {
-    feederPID.setSetpoint(rpm, ControlType.kVelocity);
+    feederTargetRPM = rpm;
+    feederPIDEnabled = true;
+    feederPIDController.reset();
   }
 
   /**
-   * Set the hopper motor to a target RPM using closed-loop velocity control.
+   * Set the hopper motor to a target RPM using software PID (runs in periodic()).
    */
   public void setHopperRPM(double rpm) {
-    hopperPID.setSetpoint(rpm, ControlType.kVelocity);
+    hopperTargetRPM = rpm;
+    hopperPIDEnabled = true;
+    hopperPIDController.reset();
   }
 
   
@@ -141,38 +150,29 @@ public class CANFuelSubsystem extends SubsystemBase {
     extraHopperRoller.setVoltage(voltage);
   }
 
-  // A method to stop the rollers
+  // A method to stop the rollers and disable PID
   public void stop() {
+    // Disable PID so periodic() stops driving the motors
+    launcherPIDEnabled = false;
+    feederPIDEnabled = false;
+    hopperPIDEnabled = false;
+    launcherTargetRPM = 0;
+    feederTargetRPM = 0;
+    hopperTargetRPM = 0;
+    // Send 0V to all motors
     feederRoller.setVoltage(0);
     intakeLauncherRoller.setVoltage(0);
     extraHopperRoller.setVoltage(0);
   }
 
   /**
-   * Reconfigure the closed-loop PID gains on both motors.
+   * Reconfigure the WPILib PID gains on all three motors.
    * Called from RobotContainer.robotPeriodic() when TunableNumbers change.
    */
   public void reconfigurePID() {
-    SparkFlexConfig feederUpdate = new SparkFlexConfig();
-    feederUpdate.closedLoop
-        .pid(kFeederP.get(), kFeederI.get(), kFeederD.get());
-    feederUpdate.closedLoop.feedForward
-        .kV(kFeederFF.get());
-    feederRoller.configure(feederUpdate, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
-
-    SparkFlexConfig launcherUpdate = new SparkFlexConfig();
-    launcherUpdate.closedLoop
-        .pid(kLauncherP.get(), kLauncherI.get(), kLauncherD.get());
-    launcherUpdate.closedLoop.feedForward
-        .kV(kLauncherFF.get());
-    intakeLauncherRoller.configure(launcherUpdate, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
-
-    SparkFlexConfig hopperUpdate = new SparkFlexConfig();
-    hopperUpdate.closedLoop
-        .pid(kHopperP.get(), kHopperI.get(), kHopperD.get());
-    hopperUpdate.closedLoop.feedForward
-        .kV(kHopperFF.get());
-    extraHopperRoller.configure(hopperUpdate, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
+    launcherPIDController.setPID(kLauncherP.get(), kLauncherI.get(), kLauncherD.get());
+    feederPIDController.setPID(kFeederP.get(), kFeederI.get(), kFeederD.get());
+    hopperPIDController.setPID(kHopperP.get(), kHopperI.get(), kHopperD.get());
   }
 
   // Command to run intake (pull game piece in)
@@ -385,16 +385,67 @@ public class CANFuelSubsystem extends SubsystemBase {
 
     public Command stopCommand() {
     return this.runOnce(() -> {
-      // Only set leader motor - follower mirrors it automatically
       stop();
     });
   }
 
   @Override
   public void periodic() {
-    // Display actual motor velocities for PID tuning
-    SmartDashboard.putNumber("Shooter/Launcher/actualRPM", launcherEncoder.getVelocity());
-    SmartDashboard.putNumber("Shooter/Feeder/actualRPM", feederEncoder.getVelocity());
-    SmartDashboard.putNumber("Shooter/Hopper/actualRPM", hopperEncoder.getVelocity());
+    // Read actual RPM from encoders
+    double launcherActualRPM = launcherEncoder.getVelocity();
+    double feederActualRPM = feederEncoder.getVelocity();
+    double hopperActualRPM = hopperEncoder.getVelocity();
+
+    // --- LAUNCHER PID LOOP ---
+    if (launcherPIDEnabled) {
+      // Feedforward: estimate the base voltage needed for the target RPM
+      // voltage = (targetRPM / freeSpeedRPM) * 12V
+      double launcherFF = (launcherTargetRPM / NEO_VORTEX_FREE_SPEED_RPM) * 12.0;
+      // PID correction: adjust based on error (target - actual)
+      double launcherPIDOutput = launcherPIDController.calculate(launcherActualRPM, launcherTargetRPM);
+      // Total voltage = feedforward + PID correction, clamped to [-12, 12]
+      double launcherVoltage = MathUtil.clamp(launcherFF + launcherPIDOutput, -12.0, 12.0);
+      intakeLauncherRoller.setVoltage(launcherVoltage);
+
+      // Debug: show what the PID is doing
+      SmartDashboard.putNumber("Shooter/Launcher/targetRPM", launcherTargetRPM);
+      SmartDashboard.putNumber("Shooter/Launcher/errorRPM", launcherTargetRPM - launcherActualRPM);
+      SmartDashboard.putNumber("Shooter/Launcher/ff", launcherFF);
+      SmartDashboard.putNumber("Shooter/Launcher/pidOutput", launcherPIDOutput);
+      SmartDashboard.putNumber("Shooter/Launcher/totalVoltage", launcherVoltage);
+    }
+
+    // --- FEEDER PID LOOP ---
+    if (feederPIDEnabled) {
+      double feederFF = (feederTargetRPM / NEO_VORTEX_FREE_SPEED_RPM) * 12.0;
+      double feederPIDOutput = feederPIDController.calculate(feederActualRPM, feederTargetRPM);
+      double feederVoltage = MathUtil.clamp(feederFF + feederPIDOutput, -12.0, 12.0);
+      feederRoller.setVoltage(feederVoltage);
+
+      SmartDashboard.putNumber("Shooter/Feeder/targetRPM", feederTargetRPM);
+      SmartDashboard.putNumber("Shooter/Feeder/errorRPM", feederTargetRPM - feederActualRPM);
+      SmartDashboard.putNumber("Shooter/Feeder/ff", feederFF);
+      SmartDashboard.putNumber("Shooter/Feeder/pidOutput", feederPIDOutput);
+      SmartDashboard.putNumber("Shooter/Feeder/totalVoltage", feederVoltage);
+    }
+
+    // --- HOPPER PID LOOP ---
+    if (hopperPIDEnabled) {
+      double hopperFF = (hopperTargetRPM / NEO_VORTEX_FREE_SPEED_RPM) * 12.0;
+      double hopperPIDOutput = hopperPIDController.calculate(hopperActualRPM, hopperTargetRPM);
+      double hopperVoltage = MathUtil.clamp(hopperFF + hopperPIDOutput, -12.0, 12.0);
+      extraHopperRoller.setVoltage(hopperVoltage);
+
+      SmartDashboard.putNumber("Shooter/Hopper/targetRPM", hopperTargetRPM);
+      SmartDashboard.putNumber("Shooter/Hopper/errorRPM", hopperTargetRPM - hopperActualRPM);
+      SmartDashboard.putNumber("Shooter/Hopper/ff", hopperFF);
+      SmartDashboard.putNumber("Shooter/Hopper/pidOutput", hopperPIDOutput);
+      SmartDashboard.putNumber("Shooter/Hopper/totalVoltage", hopperVoltage);
+    }
+
+    // Always display actual RPM for monitoring
+    SmartDashboard.putNumber("Shooter/Launcher/actualRPM", launcherActualRPM);
+    SmartDashboard.putNumber("Shooter/Feeder/actualRPM", feederActualRPM);
+    SmartDashboard.putNumber("Shooter/Hopper/actualRPM", hopperActualRPM);
   }
 }
