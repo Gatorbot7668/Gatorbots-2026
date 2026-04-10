@@ -431,7 +431,7 @@ public class SwerveSubsystem extends SubsystemBase {
         multiplier * Math.pow(yVelocitySupplier.getAsDouble(), 3) * swerveDrive.getMaximumChassisVelocity()),
         omegaFinal,
         true,
-        true);
+        false);
     });
   }
 
