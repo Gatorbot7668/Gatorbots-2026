@@ -285,7 +285,8 @@ public class CANFuelSubsystem extends SubsystemBase {
         SmartDashboard.putNumber("ShooterTest/currentTA", ta);
         
         // Start launcher only
-        setLauncherRPM(launcherTargetRPM);
+        setIntakeLauncherRoller(rpmToVoltage(launcherTargetRPM));
+        //setLauncherRPM(launcherTargetRPM);
       }),
 
       
@@ -304,8 +305,10 @@ public class CANFuelSubsystem extends SubsystemBase {
         SmartDashboard.putNumber("ShooterTest/feederActualRPM", feederEncoder.getVelocity());
         
         // Run motors at their respective target RPMs (reads from TunableNumber each loop)
-        setLauncherRPM(launcherTargetRPM);
-        setFeederRPM(feederTargetRPM);
+        //setLauncherRPM(launcherTargetRPM);
+        setIntakeLauncherRoller(rpmToVoltage(launcherTargetRPM));
+        setFeederRoller(rpmToVoltage(feederTargetRPM));
+        //setFeederRPM(feederTargetRPM);
       })
     ).finallyDo(() -> stop());
   }

@@ -112,10 +112,10 @@ public final class Constants
     // See the Software Guide for tuning information
     public static final double INTAKING_FEEDER_VOLTAGE = -5;
     public static final double INTAKING_INTAKE_VOLTAGE = 5;
-    public static final double INTAKING_HOPPER_VOLTAGE = -5;  // Hopper roller voltage during intake (same direction as feeder)
+    public static final double INTAKING_HOPPER_VOLTAGE = -8;  // Hopper roller voltage during intake (same direction as feeder)
     public static final double LAUNCHING_FEEDER_VOLTAGE = 11;
     public static final double LAUNCHING_LAUNCHER_VOLTAGE = 11;
-    public static final double LAUNCHING_HOPPER_VOLTAGE = 5;
+    public static final double LAUNCHING_HOPPER_VOLTAGE = 8;
     public static final double FERRY_FEEDER_VOLTAGE = 4;
     public static final double FERRY_LAUNCHER_VOLTAGE = 5;
     public static final double SPIN_UP_FEEDER_VOLTAGE = -6;
@@ -171,26 +171,18 @@ public final class Constants
       // These are ESTIMATED starting values — tune each point on the real robot
       // using testShooterRPM() and reading "Vision/ta_shooter" on SmartDashboard.
 
-      SHOOTER_LOOKUP_TABLE.addSample(0.05, new ShooterParameters(6784.0, 6784.0));  // Extremely far — full send
-      SHOOTER_LOOKUP_TABLE.addSample(0.10, new ShooterParameters(6600.0, 6600.0));  // Very far
-      SHOOTER_LOOKUP_TABLE.addSample(0.20, new ShooterParameters(6400.0, 6400.0));
-      SHOOTER_LOOKUP_TABLE.addSample(0.35, new ShooterParameters(6100.0, 6100.0));
-      SHOOTER_LOOKUP_TABLE.addSample(0.50, new ShooterParameters(5800.0, 5800.0));
-      SHOOTER_LOOKUP_TABLE.addSample(0.70, new ShooterParameters(5500.0, 5500.0));
-      SHOOTER_LOOKUP_TABLE.addSample(0.90, new ShooterParameters(5200.0, 5200.0));
-      SHOOTER_LOOKUP_TABLE.addSample(1.10, new ShooterParameters(4900.0, 4900.0));
-      SHOOTER_LOOKUP_TABLE.addSample(1.30, new ShooterParameters(4650.0, 4650.0));
-      SHOOTER_LOOKUP_TABLE.addSample(1.60, new ShooterParameters(4400.0, 4400.0));
-      SHOOTER_LOOKUP_TABLE.addSample(1.90, new ShooterParameters(4150.0, 4150.0));
-      SHOOTER_LOOKUP_TABLE.addSample(2.20, new ShooterParameters(3900.0, 3900.0));
-      SHOOTER_LOOKUP_TABLE.addSample(2.60, new ShooterParameters(3650.0, 3650.0));
-      SHOOTER_LOOKUP_TABLE.addSample(3.00, new ShooterParameters(3400.0, 3400.0));
-      SHOOTER_LOOKUP_TABLE.addSample(3.50, new ShooterParameters(3100.0, 3100.0));
-      SHOOTER_LOOKUP_TABLE.addSample(4.00, new ShooterParameters(2850.0, 2850.0));
-      SHOOTER_LOOKUP_TABLE.addSample(4.50, new ShooterParameters(2600.0, 2600.0));
-      SHOOTER_LOOKUP_TABLE.addSample(5.00, new ShooterParameters(2400.0, 2400.0));
-      SHOOTER_LOOKUP_TABLE.addSample(5.50, new ShooterParameters(2200.0, 2200.0));
-      SHOOTER_LOOKUP_TABLE.addSample(6.00, new ShooterParameters(2000.0, 2000.0));  // Very close — gentle lob
+      SHOOTER_LOOKUP_TABLE.addSample(0.21, new ShooterParameters(5200, 5200));
+      SHOOTER_LOOKUP_TABLE.addSample(0.265, new ShooterParameters(5175, 5175));
+      SHOOTER_LOOKUP_TABLE.addSample(0.32, new ShooterParameters(5150, 5150));  
+      SHOOTER_LOOKUP_TABLE.addSample(0.43, new ShooterParameters(5100, 5100));
+       SHOOTER_LOOKUP_TABLE.addSample(0.485, new ShooterParameters(5075, 5075));
+      SHOOTER_LOOKUP_TABLE.addSample(0.54, new ShooterParameters(5050, 5050));
+      SHOOTER_LOOKUP_TABLE.addSample(0.65, new ShooterParameters(5000, 5000)); 
+      SHOOTER_LOOKUP_TABLE.addSample(0.875, new ShooterParameters(4700, 4700));
+      SHOOTER_LOOKUP_TABLE.addSample(0.9875, new ShooterParameters(4550, 4550));
+      SHOOTER_LOOKUP_TABLE.addSample(1.1, new ShooterParameters(4400, 4400));  // max ta
+
+      
     }
   }
 
