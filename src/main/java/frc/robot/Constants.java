@@ -95,19 +95,11 @@ public final class Constants
     // NEO Vortex free speed is ~6784 RPM. We use this to convert voltage targets to RPM targets.
     public static final double NEO_VORTEX_FREE_SPEED_RPM = 6784.0;
 
-    // PID + FF gains for launcher velocity control (tunable via SmartDashboard)
-    public static final TunableNumber kLauncherP  = new TunableNumber("Shooter/Launcher/kP", 0.05);
-    public static final TunableNumber kLauncherI  = new TunableNumber("Shooter/Launcher/kI", 0.0);
-    public static final TunableNumber kLauncherD  = new TunableNumber("Shooter/Launcher/kD", 0.0);
-    public static final TunableNumber kLauncherFF = new TunableNumber("Shooter/Launcher/kFF", 1.0 / NEO_VORTEX_FREE_SPEED_RPM);
-
-    // PID + FF gains for feeder velocity control (tunable via SmartDashboard)
-    public static final TunableNumber kFeederP  = new TunableNumber("Shooter/Feeder/kP", 0.05);
-    public static final TunableNumber kFeederI  = new TunableNumber("Shooter/Feeder/kI", 0.0);
-    public static final TunableNumber kFeederD  = new TunableNumber("Shooter/Feeder/kD", 0.0);
-    public static final TunableNumber kFeederFF = new TunableNumber("Shooter/Feeder/kFF", 1.0 / NEO_VORTEX_FREE_SPEED_RPM);
-
-    // right niw kFF = 1.0 / 6784 ≈ 0.000147, which means that for every 1 RPM, the motor is required to apply 0.0000147 of the motors 
+    // Shared PID gains for both launcher AND feeder velocity control (tunable via SmartDashboard)
+    // Both motors use the same PID values since they are the same motor type (NEO Vortex)
+    public static final TunableNumber kShooterP  = new TunableNumber("Shooter/PID/kP", 0.05);
+    public static final TunableNumber kShooterI  = new TunableNumber("Shooter/PID/kI", 0.0);
+    public static final TunableNumber kShooterD  = new TunableNumber("Shooter/PID/kD", 0.0);
 
     // PID + FF gains for hopper velocity control (tunable via SmartDashboard)
     public static final TunableNumber kHopperP  = new TunableNumber("Shooter/Hopper/kP", 0.05);
@@ -131,10 +123,10 @@ public final class Constants
     public static final double MAXIMUM_VOLTAGE = 12;
 
     // Adjusting shoot constants
-    // Distance range (meters): the expected min/max distances for the lookup table
-    // When distance is at or below MIN, we're very close; at or above MAX, we're very far
-    public static final double ADJUSTING_SHOOT_DIST_MIN = 0.5;   // very close (meters)
-    public static final double ADJUSTING_SHOOT_DIST_MAX = 5.0;   // very far (meters)
+    // ta range: the expected min/max target areas for the lookup table
+    // Small ta = far from target (needs more RPM); Large ta = close (needs less RPM)
+    public static final double ADJUSTING_SHOOT_TA_MIN = 0.05;   // very far (tiny target in frame)
+    public static final double ADJUSTING_SHOOT_TA_MAX = 6.0;   // very close (large target in frame)
 
     // RPM boost applied periodically during adjustingShoot to compensate for voltage droop.
     // The target RPM increases by this amount every second while the button is held.
@@ -145,41 +137,60 @@ public final class Constants
     public static final TunableNumber kTestLauncherRPM = new TunableNumber("ShooterTest/launcherTargetRPM", 3000);
     public static final TunableNumber kTestFeederRPM = new TunableNumber("ShooterTest/feederTargetRPM", 3000);
 
+    // Tunable RPM range for adjustingShootSimple() — maps ta directly to RPM without lookup table
+    // At ta = TA_MIN (very far), RPM = maxRPM. At ta = TA_MAX (very close), RPM = minRPM.
+    public static final TunableNumber kSimpleShootMaxRPM = new TunableNumber("SimpleShoot/maxRPM", 6000);  // RPM when far away (small ta)
+    public static final TunableNumber kSimpleShootMinRPM = new TunableNumber("SimpleShoot/minRPM", 2000);  // RPM when close (large ta)
+
     /**
-     * Lookup table: Distance (meters) -> Shooter Parameters (RPM)
+     * Lookup table: Target Area (ta) -> Shooter Parameters (RPM)
+     * 
+     * ta = how large the AprilTag appears in the Limelight frame (percentage).
+     * Smaller ta = farther away = higher RPM needed.
+     * Larger ta = closer = lower RPM needed.
      * 
      * HOW TO TUNE:
-     * 1. Position robot at a known distance from the target
-     * 2. Note the "Vision/DistanceMeters" value shown on SmartDashboard
+     * 1. Position robot at a specific spot facing the target
+     * 2. Note the "Vision/ta_shooter" value shown on SmartDashboard
      * 3. Manually test different RPM values until shots consistently score
-     * 4. Add that (distance, RPM) pair below using addSample()
-     * 5. Repeat at 10-15 different distances for good interpolation
+     * 4. Add that (ta, RPM) pair below using addSample()
+     * 5. Repeat at 10-15 different positions for good interpolation
      * 
-     * distance is in meters:
-     *   - Large distance (e.g., 5.0m) = far from target = higher RPM needed
-     *   - Small distance (e.g., 0.5m) = close to target = lower RPM needed
+     * IMPORTANT: ta values are INVERSELY related to distance:
+     *   - ta ≈ 0.1-0.5  = very far from target  = high RPM
+     *   - ta ≈ 1.0-2.0  = medium distance        = medium RPM
+     *   - ta ≈ 3.0-6.0  = very close to target   = low RPM
      */
     public static final InterpolatingShooterMap SHOOTER_LOOKUP_TABLE = new InterpolatingShooterMap();
 
     static {
-      // Format: SHOOTER_LOOKUP_TABLE.addSample(distance_meters, new ShooterParameters(launcherRPM, feederRPM));
-      
-      // TODO: Replace these placeholder values with real tested values!
-      // Use testShooterRPM() command to find correct RPM at each distance.
-      // The distance is calculated from ty using trigonometry (see VisionSubsystem.getDistanceToTarget())
-      
-      SHOOTER_LOOKUP_TABLE.addSample(0.5,  new ShooterParameters(2260.0, 2260.0));  // Very close - min RPM
-      SHOOTER_LOOKUP_TABLE.addSample(1.0,  new ShooterParameters(2600.0, 2600.0));  // Close
-      SHOOTER_LOOKUP_TABLE.addSample(1.5,  new ShooterParameters(3200.0, 3200.0));  // Close
-      SHOOTER_LOOKUP_TABLE.addSample(2.0,  new ShooterParameters(3500.0, 3500.0));  // Medium-close
-      SHOOTER_LOOKUP_TABLE.addSample(2.5,  new ShooterParameters(3900.0, 3900.0));  // Medium
-      SHOOTER_LOOKUP_TABLE.addSample(3.0,  new ShooterParameters(4400.0, 4400.0));  // Medium
-      SHOOTER_LOOKUP_TABLE.addSample(3.5,  new ShooterParameters(4900.0, 4900.0));  // Medium-far
-      SHOOTER_LOOKUP_TABLE.addSample(4.0,  new ShooterParameters(5500.0, 5500.0));  // Far
-      SHOOTER_LOOKUP_TABLE.addSample(4.5,  new ShooterParameters(6200.0, 6200.0));  // Far
-      SHOOTER_LOOKUP_TABLE.addSample(5.0,  new ShooterParameters(6784.0, 6784.0));  // Very far - max RPM
-      
-      // Add more points as you test! Aim for 10-15 well-tested points.
+      // Format: SHOOTER_LOOKUP_TABLE.addSample(ta_percentage, new ShooterParameters(launcherRPM, feederRPM));
+      // Smaller ta = farther away = higher RPM needed.
+      // Larger  ta = closer       = lower  RPM needed.
+      //
+      // These are ESTIMATED starting values — tune each point on the real robot
+      // using testShooterRPM() and reading "Vision/ta_shooter" on SmartDashboard.
+
+      SHOOTER_LOOKUP_TABLE.addSample(0.05, new ShooterParameters(6784.0, 6784.0));  // Extremely far — full send
+      SHOOTER_LOOKUP_TABLE.addSample(0.10, new ShooterParameters(6600.0, 6600.0));  // Very far
+      SHOOTER_LOOKUP_TABLE.addSample(0.20, new ShooterParameters(6400.0, 6400.0));
+      SHOOTER_LOOKUP_TABLE.addSample(0.35, new ShooterParameters(6100.0, 6100.0));
+      SHOOTER_LOOKUP_TABLE.addSample(0.50, new ShooterParameters(5800.0, 5800.0));
+      SHOOTER_LOOKUP_TABLE.addSample(0.70, new ShooterParameters(5500.0, 5500.0));
+      SHOOTER_LOOKUP_TABLE.addSample(0.90, new ShooterParameters(5200.0, 5200.0));
+      SHOOTER_LOOKUP_TABLE.addSample(1.10, new ShooterParameters(4900.0, 4900.0));
+      SHOOTER_LOOKUP_TABLE.addSample(1.30, new ShooterParameters(4650.0, 4650.0));
+      SHOOTER_LOOKUP_TABLE.addSample(1.60, new ShooterParameters(4400.0, 4400.0));
+      SHOOTER_LOOKUP_TABLE.addSample(1.90, new ShooterParameters(4150.0, 4150.0));
+      SHOOTER_LOOKUP_TABLE.addSample(2.20, new ShooterParameters(3900.0, 3900.0));
+      SHOOTER_LOOKUP_TABLE.addSample(2.60, new ShooterParameters(3650.0, 3650.0));
+      SHOOTER_LOOKUP_TABLE.addSample(3.00, new ShooterParameters(3400.0, 3400.0));
+      SHOOTER_LOOKUP_TABLE.addSample(3.50, new ShooterParameters(3100.0, 3100.0));
+      SHOOTER_LOOKUP_TABLE.addSample(4.00, new ShooterParameters(2850.0, 2850.0));
+      SHOOTER_LOOKUP_TABLE.addSample(4.50, new ShooterParameters(2600.0, 2600.0));
+      SHOOTER_LOOKUP_TABLE.addSample(5.00, new ShooterParameters(2400.0, 2400.0));
+      SHOOTER_LOOKUP_TABLE.addSample(5.50, new ShooterParameters(2200.0, 2200.0));
+      SHOOTER_LOOKUP_TABLE.addSample(6.00, new ShooterParameters(2000.0, 2000.0));  // Very close — gentle lob
     }
   }
 

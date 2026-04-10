@@ -5,10 +5,10 @@
 package frc.robot.util;
 
 /**
- * Holds shooter parameters for a given distance.
- * Used with InterpolatingShooterMap for distance-based shooting.
+ * Holds shooter parameters for a given target area (ta).
+ * Used with InterpolatingShooterMap for ta-based shooting.
  * 
- * All values are interpolatable - when looking up a distance between
+ * All values are interpolatable - when looking up a ta between
  * two sample points, each parameter is linearly interpolated.
  */
 public class ShooterParameters {

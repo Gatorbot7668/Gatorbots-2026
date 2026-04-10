@@ -397,6 +397,44 @@ public class SwerveSubsystem extends SubsystemBase {
     });
   }
 
+  /**
+   * Command to drive the robot field-oriented using translative values and heading as angular velocity.
+   * 
+   * <p> Speeds are cubed for smoother control. Forward is always "away from driver station"
+   * regardless of robot heading.
+   *
+   * @param xVelocitySupplier     {@link DoubleSupplier} supplying desired x velocity (-1 to 1)
+   * @param yVelocitySupplier     {@link DoubleSupplier} supplying desired y velocity (-1 to 1)
+   * @param omegaSupplier         {@link DoubleSupplier} supplying desired angular velocity (-1 to 1)
+   * @param slow                  {@link BooleanSupplier} that should return true when driver wants slow movement
+   * @return {@link Command}
+   */
+  public Command driveFieldOrientedCommand(
+      DoubleSupplier xVelocitySupplier, 
+      DoubleSupplier yVelocitySupplier, 
+      DoubleSupplier omegaSupplier,
+      BooleanSupplier slow) {
+    return run(() -> {
+
+      double multiplier = 1.0;
+      if (slow.getAsBoolean()) {
+        multiplier *= 0.75;
+      }
+
+      double omegaRaw = omegaSupplier.getAsDouble();
+      double omegaCubed = Math.pow(omegaRaw, 3);
+      double maxAngVel = swerveDrive.getMaximumChassisAngularVelocity();
+      double omegaFinal = multiplier * omegaCubed * maxAngVel;
+
+      swerveDrive.drive(new Translation2d(
+        multiplier * Math.pow(xVelocitySupplier.getAsDouble(), 3) * swerveDrive.getMaximumChassisVelocity(),
+        multiplier * Math.pow(yVelocitySupplier.getAsDouble(), 3) * swerveDrive.getMaximumChassisVelocity()),
+        omegaFinal,
+        true,
+        true);
+    });
+  }
+
   // ! CHANGE cleanup
   /**
    * Drive robot at a set velocity

@@ -10,43 +10,51 @@ import java.util.TreeMap;
 /**
  * An interpolating lookup table for shooter parameters.
  * 
- * Maps distance (meters, calculated from Limelight ty) to ShooterParameters.
+ * Maps target area (ta, from Limelight) to ShooterParameters.
  * When querying a value between sample points, it linearly 
  * interpolates all parameters.
  * 
+ * ta = how large the AprilTag appears in the camera frame (0% to 100%).
+ *   - Large ta = close to target = lower RPM needed
+ *   - Small ta = far from target = higher RPM needed
+ * 
+ * NOTE: ta is INVERSELY related to distance — closer = bigger ta.
+ *       The lookup table keys should go from small ta (far) to large ta (close).
+ * 
  * <p><b>HOW THE INTERPOLATION CHAIN WORKS:</b>
  * <pre>
- * STEP 1: CANFuelSubsystem calls SHOOTER_LOOKUP_TABLE.get(distance)
- *         where distance = meters to target from VisionSubsystem.getDistanceToTarget()
+ * STEP 1: CANFuelSubsystem calls SHOOTER_LOOKUP_TABLE.get(ta)
+ *         where ta = target area from VisionSubsystem.getTargetAreaForShooter()
  *
- * STEP 2: InterpolatingShooterMap.get(2.5) runs:
- *         - Finds floor sample: 2.0m -> ShooterParameters(3500, 3500)
- *         - Finds ceiling sample: 3.0m -> ShooterParameters(4400, 4400)
- *         - Calculates t = (2.5-2.0)/(3.0-2.0) = 0.5 (50% of the way)
+ * STEP 2: InterpolatingShooterMap.get(1.5) runs:
+ *         - Finds floor sample: 1.0 ta -> ShooterParameters(5500, 5500)
+ *         - Finds ceiling sample: 2.0 ta -> ShooterParameters(4400, 4400)
+ *         - Calculates t = (1.5-1.0)/(2.0-1.0) = 0.5 (50% of the way)
  *         - Calls: floor.interpolate(ceiling, 0.5)
  *
  * STEP 3: ShooterParameters.interpolate() runs:
- *         - Calls lerp(3500, 4400, 0.5) for launcherRPM
- *         - Calls lerp(3500, 4400, 0.5) for feederRPM
+ *         - Calls lerp(5500, 4400, 0.5) for launcherRPM
+ *         - Calls lerp(5500, 4400, 0.5) for feederRPM
  *
  * STEP 4: lerp() does the math:
- *         - 3500 + (4400 - 3500) * 0.5 = 3950 RPM
+ *         - 5500 + (4400 - 5500) * 0.5 = 4950 RPM
  *
- * STEP 5: Returns ShooterParameters(3950, 3950) back up the chain
- *         CANFuelSubsystem uses this to call setLauncherRPM(3950)
+ * STEP 5: Returns ShooterParameters(4950, 4950) back up the chain
+ *         CANFuelSubsystem uses this to call setLauncherRPM(4950)
  * </pre>
  * 
  * <p>Usage:
  * <pre>
  * InterpolatingShooterMap map = new InterpolatingShooterMap();
  * 
- * // Add samples from testing (distance_meters, parameters)
- * map.addSample(0.5, new ShooterParameters(2260, 2260));  // very close
- * map.addSample(2.5, new ShooterParameters(3900, 3900));  // medium
- * map.addSample(5.0, new ShooterParameters(6784, 6784));  // very far
+ * // Add samples from testing (ta_percentage, parameters)
+ * // NOTE: smaller ta = farther = higher RPM
+ * map.addSample(0.1, new ShooterParameters(6784, 6784));  // very far (tiny target)
+ * map.addSample(2.0, new ShooterParameters(3900, 3900));  // medium
+ * map.addSample(5.0, new ShooterParameters(2260, 2260));  // very close (large target)
  * 
  * // Query - automatically interpolates between points
- * ShooterParameters params = map.get(1.5); // interpolates between 0.5 and 2.5
+ * ShooterParameters params = map.get(1.0); // interpolates between 0.1 and 2.0
  * setLauncherRPM(params.launcherRPM);
  * </pre>
  * 
@@ -58,8 +66,8 @@ public class InterpolatingShooterMap {
 
     /**
      * Add a sample point to the lookup table.
-     * @param key The distance in meters (from VisionSubsystem.getDistanceToTarget())
-     * @param parameters The shooter parameters that work at this distance
+     * @param key The target area (ta) from VisionSubsystem.getTargetAreaForShooter()
+     * @param parameters The shooter parameters that work at this ta value
      */
     public void addSample(double key, ShooterParameters parameters) {
         samples.put(key, parameters);

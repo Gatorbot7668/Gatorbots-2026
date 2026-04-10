@@ -81,8 +81,9 @@ public class CANFuelSubsystem extends SubsystemBase {
 
     // Create WPILib PID controllers for each motor
     // These run on the roboRIO at 50Hz (every 20ms) in periodic()
-    launcherPIDController = new PIDController(kLauncherP.get(), kLauncherI.get(), kLauncherD.get());
-    feederPIDController   = new PIDController(kFeederP.get(), kFeederI.get(), kFeederD.get());
+    // Launcher and feeder share the same PID gains (kShooterP/I/D)
+    launcherPIDController = new PIDController(kShooterP.get(), kShooterI.get(), kShooterD.get());
+    feederPIDController   = new PIDController(kShooterP.get(), kShooterI.get(), kShooterD.get());
     hopperPIDController   = new PIDController(kHopperP.get(), kHopperI.get(), kHopperD.get());
 
     // Allow continuous wrapping is not needed for velocity — PID will just track RPM
@@ -170,8 +171,8 @@ public class CANFuelSubsystem extends SubsystemBase {
    * Called from RobotContainer.robotPeriodic() when TunableNumbers change.
    */
   public void reconfigurePID() {
-    launcherPIDController.setPID(kLauncherP.get(), kLauncherI.get(), kLauncherD.get());
-    feederPIDController.setPID(kFeederP.get(), kFeederI.get(), kFeederD.get());
+    launcherPIDController.setPID(kShooterP.get(), kShooterI.get(), kShooterD.get());
+    feederPIDController.setPID(kShooterP.get(), kShooterI.get(), kShooterD.get());
     hopperPIDController.setPID(kHopperP.get(), kHopperI.get(), kHopperD.get());
   }
 
@@ -180,9 +181,12 @@ public class CANFuelSubsystem extends SubsystemBase {
   public Command intake() {
     return this.startEnd(
       () -> {
-        setLauncherRPM(voltageToRPM(INTAKING_INTAKE_VOLTAGE)); // use closed-loop velocity control for intake roller to maintain consistent speed under load
-        setFeederRPM(voltageToRPM(INTAKING_FEEDER_VOLTAGE));
-        setHopperRPM(voltageToRPM(INTAKING_HOPPER_VOLTAGE));
+        //setLauncherRPM(voltageToRPM(INTAKING_INTAKE_VOLTAGE)); // use closed-loop velocity control for intake roller to maintain consistent speed under load
+        //setFeederRPM(voltageToRPM(INTAKING_FEEDER_VOLTAGE));
+        //setHopperRPM(voltageToRPM(INTAKING_HOPPER_VOLTAGE));
+        setIntakeLauncherRoller(INTAKING_INTAKE_VOLTAGE);
+        setFeederRoller(INTAKING_FEEDER_VOLTAGE);
+        setHopperRoller(INTAKING_HOPPER_VOLTAGE);
       },
       () -> stop()
     );
@@ -238,14 +242,18 @@ public class CANFuelSubsystem extends SubsystemBase {
   }
 
   public Command maxShoot(){
-    return this.startEnd(
-    () -> {
-      setLauncherRPM(voltageToRPM(MAXIMUM_VOLTAGE));
-      setFeederRPM(voltageToRPM(LAUNCHING_FEEDER_VOLTAGE));
-      setHopperRPM(voltageToRPM(LAUNCHING_HOPPER_VOLTAGE));
-    },
-    () -> stop()
-    );
+    return new SequentialCommandGroup(
+      // Step 1: Spin up launcher at full voltage
+      new InstantCommand(() -> setIntakeLauncherRoller(MAXIMUM_VOLTAGE)),
+      // Step 2: Wait 2 seconds for spin-up
+      new WaitCommand(2),
+      // Step 3: Start feeder + hopper, keep launcher running
+      Commands.run(() -> {
+        setIntakeLauncherRoller(MAXIMUM_VOLTAGE);
+        setFeederRoller(MAXIMUM_VOLTAGE);
+        setHopperRoller(LAUNCHING_HOPPER_VOLTAGE);
+      })
+    ).finallyDo(() -> stop());
   }
 
   /**
@@ -257,40 +265,41 @@ public class CANFuelSubsystem extends SubsystemBase {
    * 1. Add these TunableNumbers to SmartDashboard:
    *    - "ShooterTest/launcherTargetRPM" (editable, default 3000)
    *    - "ShooterTest/feederTargetRPM" (editable, default 3000)
-   * 2. Position robot at a specific distance from the target
-   * 3. Note the "ShooterTest/currentDistance" value shown on SmartDashboard
+   * 2. Position robot at a specific position facing the target
+   * 3. Note the "ShooterTest/currentTA" value shown on SmartDashboard
    * 4. Hold the button to spin up and shoot
    * 5. Adjust target RPM values until shots consistently score
-   * 6. Record: distance = X meters, launcherRPM = Y, feederRPM = Z
-   * 7. Move to a new distance and repeat
-   * 8. After testing 10-15 distances, add values to SHOOTER_LOOKUP_TABLE in Constants.java
+   * 6. Record: ta = X, launcherRPM = Y, feederRPM = Z
+   * 7. Move to a new position and repeat
+   * 8. After testing 10-15 positions, add values to SHOOTER_LOOKUP_TABLE in Constants.java
    * 
-   * @param vision The VisionSubsystem to read distance from (for display only)
+   * @param vision The VisionSubsystem to read ta from (for display only)
    */
   public Command testShooterRPM(VisionSubsystem vision) {
     return new SequentialCommandGroup(
-      // Step 1: Show current distance and start launcher at manual RPM
+      // Step 1: Show current ta and start launcher at manual RPM
       new InstantCommand(() -> {
-        double distance = vision.getDistanceToTarget();
+        double ta = vision.getTargetAreaForShooter();
         double launcherTargetRPM = kTestLauncherRPM.get();
         
-        SmartDashboard.putNumber("ShooterTest/currentDistance", distance);
+        SmartDashboard.putNumber("ShooterTest/currentTA", ta);
         
         // Start launcher only
         setLauncherRPM(launcherTargetRPM);
       }),
+
       
       // Step 2: Wait 2 seconds for spin-up
       new WaitCommand(2),
       
-      // Step 3: Start feeder and keep running, continuously show distance and actual RPM
+      // Step 3: Start feeder and keep running, continuously show ta and actual RPM
       Commands.run(() -> {
-        double distance = vision.getDistanceToTarget();
+        double ta = vision.getTargetAreaForShooter();
         double launcherTargetRPM = kTestLauncherRPM.get();
         double feederTargetRPM = kTestFeederRPM.get();
         
         // Display current values for recording
-        SmartDashboard.putNumber("ShooterTest/currentDistance", distance);
+        SmartDashboard.putNumber("ShooterTest/currentTA", ta);
         SmartDashboard.putNumber("ShooterTest/launcherActualRPM", launcherEncoder.getVelocity());
         SmartDashboard.putNumber("ShooterTest/feederActualRPM", feederEncoder.getVelocity());
         
@@ -302,66 +311,163 @@ public class CANFuelSubsystem extends SubsystemBase {
   }
 
   /**
-   * Adjusts shoot RPM based on distance to target (calculated from Limelight ty),
+   * Adjusts shoot RPM based on target area (ta) from the Limelight,
    * using a lookup table for empirically-tested RPM values.
    *
-   * Distance is calculated using trigonometry from the Limelight's ty angle:
-   *   - Large distance = far from target = more RPM needed
-   *   - Small distance = close to target = less RPM needed
+   * ta = how large the AprilTag appears in the camera frame:
+   *   - Small ta = far from target = more RPM needed
+   *   - Large ta = close to target = less RPM needed
    *
-   * The lookup table (SHOOTER_LOOKUP_TABLE in Constants) maps distance (meters)
+   * ta naturally accounts for both distance AND angle to the target.
+   * When the robot is diagonal to the hub, ta is smaller because the tag
+   * appears narrower, AND the straight-line distance is longer — so higher
+   * RPM is the correct response.
+   *
+   * The lookup table (SHOOTER_LOOKUP_TABLE in Constants) maps ta values
    * to tested RPM values and interpolates between sample points.
    *
-   * Uses closed-loop velocity PID (built into SparkFlex) so motors 
-   * maintain speed even under load - no manual boost needed.
+   * Uses closed-loop velocity PID (WPILib PIDController in periodic())
+   * so motors maintain speed even under load.
    *
    * Sequence:
-   *   1. Read distance, lookup RPM, start launcher
+   *   1. Read ta, lookup RPM, start launcher
    *   2. Wait 2 seconds for launcher to spin up
-   *   3. Start feeder, continuously update both based on current distance
-   *   4. When button released, stop both motors
+   *   3. Start feeder, continuously update both based on current ta
+   *   4. When button released, stop all motors
    *
-   * @param vision The VisionSubsystem to read distance from
+   * @param vision The VisionSubsystem to read ta from
    */
   public Command adjustingShoot(VisionSubsystem vision) {
     return new SequentialCommandGroup(
-      // Step 1: Read distance and lookup RPM from table, then start launcher only.
+      // Step 1: Read ta and lookup RPM from table, then start launcher only.
       new InstantCommand(() -> {
-        double distance = vision.getDistanceToTarget();
-        double clampedDist = MathUtil.clamp(distance, ADJUSTING_SHOOT_DIST_MIN, ADJUSTING_SHOOT_DIST_MAX);
+        double ta = vision.getTargetAreaForShooter();
+        double clampedTA = MathUtil.clamp(ta, ADJUSTING_SHOOT_TA_MIN, ADJUSTING_SHOOT_TA_MAX);
         
-        // LOOKUP TABLE: Get interpolated parameters for this distance
-        ShooterParameters params = SHOOTER_LOOKUP_TABLE.get(clampedDist);
+        // LOOKUP TABLE: Get interpolated parameters for this ta
+        ShooterParameters params = SHOOTER_LOOKUP_TABLE.get(clampedTA);
 
-        SmartDashboard.putNumber("AdjustingShoot/distance", distance);
+        SmartDashboard.putNumber("AdjustingShoot/ta", ta);
         SmartDashboard.putNumber("AdjustingShoot/launcherRPM", params.launcherRPM);
 
         // Start launcher only - PID maintains speed automatically
-        setLauncherRPM(params.launcherRPM);
+        //setLauncherRPM(params.launcherRPM);
+        setIntakeLauncherRoller(rpmToVoltage(params.launcherRPM));
       }),
       
       // Step 2: Wait 2 seconds for launcher to spin up
       new WaitCommand(2),
       
       // Step 3: Start feeder and keep both running until button released.
-      //         Continuously re-reads distance so RPM adjusts if robot moves.
+      //         Continuously re-reads ta so RPM adjusts if robot moves.
       Commands.run(() -> {
-        double distance = vision.getDistanceToTarget();
-        double clampedDist = MathUtil.clamp(distance, ADJUSTING_SHOOT_DIST_MIN, ADJUSTING_SHOOT_DIST_MAX);
+        double ta = vision.getTargetAreaForShooter();
+        double clampedTA = MathUtil.clamp(ta, ADJUSTING_SHOOT_TA_MIN, ADJUSTING_SHOOT_TA_MAX);
         
-        // LOOKUP TABLE: Get interpolated parameters for current distance
-        ShooterParameters params = SHOOTER_LOOKUP_TABLE.get(clampedDist);
+        // LOOKUP TABLE: Get interpolated parameters for current ta
+        ShooterParameters params = SHOOTER_LOOKUP_TABLE.get(clampedTA);
 
-        SmartDashboard.putNumber("AdjustingShoot/distance", distance);
+        SmartDashboard.putNumber("AdjustingShoot/ta", ta);
         SmartDashboard.putNumber("AdjustingShoot/launcherRPM", params.launcherRPM);
         SmartDashboard.putNumber("AdjustingShoot/feederRPM", params.feederRPM);
 
         // PID maintains these speeds automatically
-        setLauncherRPM(params.launcherRPM);
-        setFeederRPM(params.feederRPM);
-        setHopperRPM(voltageToRPM(LAUNCHING_HOPPER_VOLTAGE));
+        setIntakeLauncherRoller(rpmToVoltage(params.launcherRPM));
+        setFeederRoller(rpmToVoltage(params.feederRPM));
+        setHopperRoller(LAUNCHING_HOPPER_VOLTAGE);
       })
     ).finallyDo(() -> stop());
+  }
+
+  /**
+   * Adjusting shoot WITHOUT lookup table or PID — uses a simple formula to convert ta to RPM,
+   * then converts that RPM directly to voltage and sends it raw to the motors (open-loop).
+   * 
+   * Formula: RPM = maxRPM / (1 + k * ta)
+   * Voltage = (RPM / 6784) * 12V
+   * 
+   * If no target is visible, motors don't spin.
+   * maxRPM and minRPM are tunable on SmartDashboard under "SimpleShoot/".
+   * 
+   * @param vision The VisionSubsystem to read ta from
+   */
+  public Command adjustingShootSimple(VisionSubsystem vision) {
+    return new SequentialCommandGroup(
+      // Step 1: Read ta, calculate voltage, start launcher only (skip if no target)
+      new InstantCommand(() -> {
+        if (!vision.hasTarget()) {
+          SmartDashboard.putString("SimpleShoot/status", "NO TARGET");
+          return;
+        }
+        double ta = vision.getTargetAreaForShooter();
+        double rpm = taToRPM(ta);
+        double voltage = rpmToVoltage(rpm);
+        
+        SmartDashboard.putString("SimpleShoot/status", "SPINNING UP");
+        SmartDashboard.putNumber("SimpleShoot/ta", ta);
+        SmartDashboard.putNumber("SimpleShoot/targetRPM", rpm);
+        SmartDashboard.putNumber("SimpleShoot/voltage", voltage);
+
+        intakeLauncherRoller.setVoltage(voltage);
+      }),
+      
+      // Step 2: Wait 2 seconds for spin-up
+      new WaitCommand(2),
+      
+      // Step 3: Start feeder + hopper, continuously update from ta
+      Commands.run(() -> {
+        if (!vision.hasTarget()) {
+          SmartDashboard.putString("SimpleShoot/status", "NO TARGET - HOLDING");
+          return;
+        }
+        double ta = vision.getTargetAreaForShooter();
+        double rpm = taToRPM(ta);
+        double voltage = rpmToVoltage(rpm);
+        
+        SmartDashboard.putString("SimpleShoot/status", "SHOOTING");
+        SmartDashboard.putNumber("SimpleShoot/ta", ta);
+        SmartDashboard.putNumber("SimpleShoot/targetRPM", rpm);
+        SmartDashboard.putNumber("SimpleShoot/voltage", voltage);
+        SmartDashboard.putNumber("SimpleShoot/launcherActualRPM", launcherEncoder.getVelocity());
+        SmartDashboard.putNumber("SimpleShoot/feederActualRPM", feederEncoder.getVelocity());
+        
+        // Raw voltage — no PID
+        intakeLauncherRoller.setVoltage(voltage);
+        feederRoller.setVoltage(voltage);
+        extraHopperRoller.setVoltage(rpmToVoltage(voltageToRPM(LAUNCHING_HOPPER_VOLTAGE)));
+      })
+    ).finallyDo(() -> {
+      // Stop all motors directly (no PID to disable)
+      intakeLauncherRoller.setVoltage(0);
+      feederRoller.setVoltage(0);
+      extraHopperRoller.setVoltage(0);
+    });
+  }
+
+  /**
+   * Convert RPM to voltage (inverse of voltageToRPM).
+   * voltage = (rpm / freeSpeedRPM) * 12V
+   */
+  private double rpmToVoltage(double rpm) {
+    return (rpm / NEO_VORTEX_FREE_SPEED_RPM) * 12.0;
+  }
+
+  /**
+   * Convert ta (target area percentage) directly to RPM.
+   * Uses an inverse formula so that:
+   *   - Small ta (far away) → high RPM
+   *   - Large ta (close) → low RPM
+   * 
+   * Formula: RPM = maxRPM / (1 + k * ta),  where k = (maxRPM/minRPM - 1)
+   * No clamping — works with whatever ta the Limelight returns.
+   */
+  private double taToRPM(double ta) {
+    double maxRPM = FuelConstants.kSimpleShootMaxRPM.get();
+    double minRPM = FuelConstants.kSimpleShootMinRPM.get();
+    
+    // k scales so that at ta=1.0, RPM = minRPM
+    double k = (maxRPM / minRPM) - 1.0;
+    return maxRPM / (1.0 + k * ta);
   }
 
 
@@ -388,6 +494,7 @@ public class CANFuelSubsystem extends SubsystemBase {
       stop();
     });
   }
+
 
   @Override
   public void periodic() {

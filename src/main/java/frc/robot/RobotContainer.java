@@ -69,7 +69,8 @@ public class RobotContainer
     // Field-oriented drive (default)
     NamedCommands.registerCommand("Intake", m_fuel.intake().withTimeout(3));
     NamedCommands.registerCommand("adjustShoot", m_fuel.adjustingShoot(m_vision));
-    Command driveFieldOrientedAnglularVelocity = m_drivebase.driveRobotRelativeCommand(
+    NamedCommands.registerCommand("maxShoot", m_fuel.maxShoot().withTimeout(7));
+    Command driveFieldOrientedAnglularVelocity = m_drivebase.driveFieldOrientedCommand(
         () -> MathUtil.applyDeadband(m_driverXbox.getLeftY() * -1, OperatorConstants.LEFT_Y_DEADBAND),
         () -> MathUtil.applyDeadband(m_driverXbox.getLeftX() * -1, OperatorConstants.LEFT_X_DEADBAND),
         () -> MathUtil.applyDeadband(m_driverXbox.getHID().getRawAxis(2) * -1, OperatorConstants.RIGHT_X_DEADBAND),
@@ -133,7 +134,8 @@ public class RobotContainer
 
     m_drivebase.setDefaultCommand(
         // testMotors);
-        driveRobotOriented);
+        driveFieldOrientedAnglularVelocity);
+        // driveRobotOriented);
         // driveFieldOrientedDirectAngle);
         // !RobotBase.isSimulation() ? driveFieldOrientedDirectAngle :
         // driveFieldOrientedDirectAngleSim);
@@ -160,8 +162,13 @@ public class RobotContainer
     // D-pad Up = Adjusting shoot (voltage based on Limelight distance)
     m_secondaryDriverXbox.povUp().whileTrue(m_fuel.adjustingShoot(m_vision));
 
-    // D-pad Down = Toggle Limelight pipeline (AprilTag ↔ Retroreflective)
-    m_secondaryDriverXbox.povDown().onTrue(Commands.runOnce(() -> m_vision.togglePipeline()));
+    // D-pad Down = Test shooter RPM (manual RPM from SmartDashboard, for PID tuning)
+    m_secondaryDriverXbox.povDown().whileTrue(m_fuel.testShooterRPM(m_vision));
+
+    // D-pad Right = Simple adjusting shoot (ta → RPM formula, no lookup table needed)
+    m_secondaryDriverXbox.povRight().whileTrue(m_fuel.adjustingShootSimple(m_vision));
+
+   
 ////////// CHECK IF WE WANT THIS
     
     
@@ -240,12 +247,9 @@ public class RobotContainer
     }
 
     // Update shooter PID when tunable values are changed on SmartDashboard
-    if (frc.robot.Constants.FuelConstants.kLauncherP.hasChanged()
-        || frc.robot.Constants.FuelConstants.kLauncherI.hasChanged()
-        || frc.robot.Constants.FuelConstants.kLauncherD.hasChanged()
-        || frc.robot.Constants.FuelConstants.kFeederP.hasChanged()
-        || frc.robot.Constants.FuelConstants.kFeederI.hasChanged()
-        || frc.robot.Constants.FuelConstants.kFeederD.hasChanged()
+    if (frc.robot.Constants.FuelConstants.kShooterP.hasChanged()
+        || frc.robot.Constants.FuelConstants.kShooterI.hasChanged()
+        || frc.robot.Constants.FuelConstants.kShooterD.hasChanged()
         || frc.robot.Constants.FuelConstants.kHopperP.hasChanged()
         || frc.robot.Constants.FuelConstants.kHopperI.hasChanged()
         || frc.robot.Constants.FuelConstants.kHopperD.hasChanged()) {

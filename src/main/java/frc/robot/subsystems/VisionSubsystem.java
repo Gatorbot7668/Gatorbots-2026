@@ -89,32 +89,41 @@ public class VisionSubsystem extends SubsystemBase {
         }
     }
 
-    public double get_ta(){
-        double ta = LimelightHelpers.getTA("limelight");
-        return ta;
-    }
-
-    //  DISTANCE ESTIMATION
-    private static final double LIMELIGHT_HEIGHT_METERS = 0.38;        // Height of Limelight lens from floor
-    private static final double TARGET_HEIGHT_METERS = 1.124;           // Height of AprilTag center from floor
-    private static final double LIMELIGHT_MOUNT_ANGLE_DEGREES = 0.0; // Degrees tilted up from horizontal
+    // private static final double LIMELIGHT_HEIGHT_METERS = 0.38;
+    // private static final double TARGET_HEIGHT_METERS = 1.124;
+    // private static final double LIMELIGHT_MOUNT_ANGLE_DEGREES = 0.0;
+    //
+    // public double getDistanceToTarget() {
+    //     if (!hasTarget()) return -1.0;
+    //     double ty = getTargetY();
+    //     double angleToTargetRadians = Math.toRadians(LIMELIGHT_MOUNT_ANGLE_DEGREES + ty);
+    //     double distance = (TARGET_HEIGHT_METERS - LIMELIGHT_HEIGHT_METERS) / Math.tan(angleToTargetRadians);
+    //     SmartDashboard.putNumber("Vision/ty", ty);
+    //     SmartDashboard.putNumber("Vision/angletoTargetRadians", angleToTargetRadians);
+    //     SmartDashboard.putNumber("Vision/DistanceMeters", distance);
+    //     return distance;
+    // }
 
     /**
-     * Calculates horizontal distance to the target using ty (vertical angle).
-     * Uses: distance = (targetHeight - cameraHeight) / tan(mountAngle + ty)
-     * @return distance in meters, or -1.0 if no target is detected
+     * Returns the target area (ta) from the Limelight.
+     * 
+     * ta represents how large the target appears in the camera frame (0% to 100%).
+     * Larger ta = closer to target, smaller ta = farther from target.
+     * 
+     * ta is used as the key for the shooter lookup table because:
+     *   - It naturally scales with straight-line distance (not just perpendicular)
+     *   - It's always positive and consistent (no axis rotation issues)
+     *   - When the robot is diagonal to the target, ta is smaller AND the
+     *     hypotenuse distance is longer, so higher RPM is needed — ta accounts
+     *     for both distance and angle automatically
+     * 
+     * @return target area percentage, or -1.0 if no target detected
      */
-    public double getDistanceToTarget() {
+    public double getTargetAreaForShooter() {
         if (!hasTarget()) return -1.0;
-
-        double ty = getTargetY();
-        double angleToTargetRadians = Math.toRadians(LIMELIGHT_MOUNT_ANGLE_DEGREES + ty);
-        double distance = (TARGET_HEIGHT_METERS - LIMELIGHT_HEIGHT_METERS) / Math.tan(angleToTargetRadians);
-
-        SmartDashboard.putNumber("Vision/ty", ty);
-        SmartDashboard.putNumber("Vision/angletoTargetRadians", angleToTargetRadians);
-        SmartDashboard.putNumber("Vision/DistanceMeters", distance);
-        return distance;
+        double ta = LimelightHelpers.getTA("limelight");
+        SmartDashboard.putNumber("Vision/ta_shooter", ta);
+        return ta;
     }
 
     // ==================== PIPELINE SHORTCUTS ====================
@@ -143,11 +152,11 @@ public class VisionSubsystem extends SubsystemBase {
 
     @Override
     public void periodic() {
-        SmartDashboard.putNumber("Vision/ta", get_ta() );
+        
         SmartDashboard.putBoolean("Vision/HasTarget", hasTarget());
         SmartDashboard.putNumber("Vision/TargetX", getTargetX());
         SmartDashboard.putNumber("Vision/TargetY", getTargetY());
-        SmartDashboard.putNumber("Vision/DistanceMeters", getDistanceToTarget());
+        SmartDashboard.putNumber("Vision/TargetAreaForShooter", getTargetAreaForShooter());
         SmartDashboard.putNumber("Vision/AprilTagID", getAprilTagID());
         SmartDashboard.putString("Vision/DetectedClass", getDetectedClass());
         SmartDashboard.putNumber("Vision/ActivePipeline", LimelightHelpers.getCurrentPipelineIndex("limelight"));
