@@ -61,14 +61,16 @@ public class RobotContainer
   private SendableChooser<Command> m_autoChooser = null;
 
   public RobotContainer() {
-    // --- Limelight color camera stream for Elastic/Shuffleboard ---
-    // Uses the default Limelight hostname. If this doesn't work, try "http://10.76.68.11:5800/stream.mjpg"
-    HttpCamera limelightCam = new HttpCamera("limelight", "http://limelight.local:5800/stream.mjpg");
+    // --- Limelight camera stream for Elastic/Shuffleboard/SmartDashboard ---
+    // Port 5800 = raw MJPEG stream of what the Limelight camera sees
+    // If "limelight.local" doesn't resolve, use the static IP (typically 10.76.68.11)
+    HttpCamera limelightCam = new HttpCamera("limelight", "http://10.76.68.11:5800/stream.mjpg");
     CameraServer.startAutomaticCapture(limelightCam);
 
     // Field-oriented drive (default)
     NamedCommands.registerCommand("Intake", m_fuel.intake().withTimeout(3));
     NamedCommands.registerCommand("adjustShoot", m_fuel.adjustingShoot(m_vision));
+    NamedCommands.registerCommand("auto_fixed_voltage_shoot", m_fuel.auto_shoot().withTimeout(7));
     NamedCommands.registerCommand("maxShoot", m_fuel.maxShoot().withTimeout(7));
     Command driveFieldOrientedAnglularVelocity = m_drivebase.driveFieldOrientedCommand(
         () -> MathUtil.applyDeadband(m_driverXbox.getLeftY() * -1, OperatorConstants.LEFT_Y_DEADBAND),
@@ -134,7 +136,7 @@ public class RobotContainer
 
     m_drivebase.setDefaultCommand(
         // testMotors);
-    driveFieldOrientedAnglularVelocity);
+    driveRobotOriented);
         // driveRobotOriented);
         // driveFieldOrientedDirectAngle);
         // !RobotBase.isSimulation() ? driveFieldOrientedDirectAngle :
@@ -168,6 +170,9 @@ public class RobotContainer
 
     // D-pad Right = Simple adjusting shoot (ta → RPM formula, no lookup table needed)
     m_secondaryDriverXbox.povRight().whileTrue(m_fuel.adjustingShootSimple(m_vision));
+
+    // D-pad Left = PID test (all 3 motors at shooting RPM using closed-loop PID)
+    m_secondaryDriverXbox.povLeft().whileTrue(m_fuel.testPID());
 
    
 ////////// CHECK IF WE WANT THIS

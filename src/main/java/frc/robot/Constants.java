@@ -115,12 +115,14 @@ public final class Constants
     public static final double INTAKING_HOPPER_VOLTAGE = -8;  // Hopper roller voltage during intake (same direction as feeder)
     public static final double LAUNCHING_FEEDER_VOLTAGE = 11;
     public static final double LAUNCHING_LAUNCHER_VOLTAGE = 11;
-    public static final double LAUNCHING_HOPPER_VOLTAGE = 8;
+    public static final double LAUNCHING_HOPPER_VOLTAGE = 7;
     public static final double FERRY_FEEDER_VOLTAGE = 4;
     public static final double FERRY_LAUNCHER_VOLTAGE = 5;
     public static final double SPIN_UP_FEEDER_VOLTAGE = -6;
     public static final double SPIN_UP_SECONDS = 1.5;
     public static final double MAXIMUM_VOLTAGE = 12;
+    public static final double AUTO_LAUNCHER_VOLTAGE = 9;
+    public static final double AUTO_FEEDER_VOLTAGE = 9; 
 
     // Adjusting shoot constants
     // ta range: the expected min/max target areas for the lookup table
@@ -171,14 +173,14 @@ public final class Constants
       // These are ESTIMATED starting values — tune each point on the real robot
       // using testShooterRPM() and reading "Vision/ta_shooter" on SmartDashboard.
 
-      SHOOTER_LOOKUP_TABLE.addSample(0.21, new ShooterParameters(5200, 5200));
-      SHOOTER_LOOKUP_TABLE.addSample(0.265, new ShooterParameters(5175, 5175));
+      SHOOTER_LOOKUP_TABLE.addSample(0.22, new ShooterParameters(5400, 5400));
+      SHOOTER_LOOKUP_TABLE.addSample(0.265, new ShooterParameters(5250, 5250));
       SHOOTER_LOOKUP_TABLE.addSample(0.32, new ShooterParameters(5150, 5150));  
       SHOOTER_LOOKUP_TABLE.addSample(0.43, new ShooterParameters(5100, 5100));
-       SHOOTER_LOOKUP_TABLE.addSample(0.485, new ShooterParameters(5075, 5075));
+      SHOOTER_LOOKUP_TABLE.addSample(0.485, new ShooterParameters(5060, 5060));
       SHOOTER_LOOKUP_TABLE.addSample(0.54, new ShooterParameters(5050, 5050));
       SHOOTER_LOOKUP_TABLE.addSample(0.65, new ShooterParameters(5000, 5000)); 
-      SHOOTER_LOOKUP_TABLE.addSample(0.875, new ShooterParameters(4700, 4700));
+      SHOOTER_LOOKUP_TABLE.addSample(0.89, new ShooterParameters(4600, 4600));
       SHOOTER_LOOKUP_TABLE.addSample(0.9875, new ShooterParameters(4550, 4550));
       SHOOTER_LOOKUP_TABLE.addSample(1.1, new ShooterParameters(4400, 4400));  // max ta
 

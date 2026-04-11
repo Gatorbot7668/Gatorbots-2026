@@ -228,17 +228,17 @@ public class CANFuelSubsystem extends SubsystemBase {
     );
   }
 
-  public Command shoot(){
+  public Command shoot_testPID(){
     return new SequentialCommandGroup(
-      new InstantCommand(() -> setLauncherRPM(voltageToRPM(LAUNCHING_LAUNCHER_VOLTAGE))),
+      new InstantCommand(() -> 
+      setLauncherRPM(voltageToRPM(AUTO_LAUNCHER_VOLTAGE))), 
       new WaitCommand(1),
-      new InstantCommand(() -> {
+      Commands.run(()->{
         setFeederRPM(voltageToRPM(LAUNCHING_FEEDER_VOLTAGE));
         setHopperRPM(voltageToRPM(LAUNCHING_HOPPER_VOLTAGE));
-      }),
-      new WaitCommand(3),
-      new InstantCommand(() -> stop())
-    );
+      })
+      )
+      .finallyDo(() -> stop());
   }
 
   public Command maxShoot(){
@@ -251,6 +251,37 @@ public class CANFuelSubsystem extends SubsystemBase {
       Commands.run(() -> {
         setIntakeLauncherRoller(MAXIMUM_VOLTAGE);
         setFeederRoller(MAXIMUM_VOLTAGE);
+        setHopperRoller(LAUNCHING_HOPPER_VOLTAGE);
+      })
+    ).finallyDo(() -> stop());
+  }
+
+  /**
+   * PID TEST: Hold to spin all 3 motors using closed-loop PID at shooting RPMs.
+   * Watch SmartDashboard Shooter/xxx/errorRPM to see if PID is tracking well.
+   */
+  public Command testPID() {
+    return this.startEnd(
+      () -> {
+        setLauncherRPM(voltageToRPM(LAUNCHING_LAUNCHER_VOLTAGE));
+        setFeederRPM(voltageToRPM(LAUNCHING_FEEDER_VOLTAGE));
+        setHopperRPM(voltageToRPM(LAUNCHING_HOPPER_VOLTAGE));
+      },
+      () -> stop()
+    );
+  }
+
+  /**
+   * Auto shoot using fixed voltages (AUTO_LAUNCHER_VOLTAGE / AUTO_FEEDER_VOLTAGE).
+   * Used in PathPlanner autos. Spins launcher, waits 2s, then feeds. Stops after command ends.
+   */
+  public Command auto_shoot() {
+    return new SequentialCommandGroup(
+      new InstantCommand(() -> setIntakeLauncherRoller(AUTO_LAUNCHER_VOLTAGE)),
+      new WaitCommand(2),
+      Commands.run(() -> {
+        setIntakeLauncherRoller(AUTO_LAUNCHER_VOLTAGE);
+        setFeederRoller(AUTO_FEEDER_VOLTAGE);
         setHopperRoller(LAUNCHING_HOPPER_VOLTAGE);
       })
     ).finallyDo(() -> stop());
@@ -285,8 +316,7 @@ public class CANFuelSubsystem extends SubsystemBase {
         SmartDashboard.putNumber("ShooterTest/currentTA", ta);
         
         // Start launcher only
-        setIntakeLauncherRoller(rpmToVoltage(launcherTargetRPM));
-        //setLauncherRPM(launcherTargetRPM);
+        setLauncherRPM(launcherTargetRPM);
       }),
 
       
@@ -305,10 +335,8 @@ public class CANFuelSubsystem extends SubsystemBase {
         SmartDashboard.putNumber("ShooterTest/feederActualRPM", feederEncoder.getVelocity());
         
         // Run motors at their respective target RPMs (reads from TunableNumber each loop)
-        //setLauncherRPM(launcherTargetRPM);
-        setIntakeLauncherRoller(rpmToVoltage(launcherTargetRPM));
-        setFeederRoller(rpmToVoltage(feederTargetRPM));
-        //setFeederRPM(feederTargetRPM);
+        setLauncherRPM(launcherTargetRPM);
+        setFeederRPM(feederTargetRPM);
       })
     ).finallyDo(() -> stop());
   }
@@ -321,7 +349,8 @@ public class CANFuelSubsystem extends SubsystemBase {
    *   - Small ta = far from target = more RPM needed
    *   - Large ta = close to target = less RPM needed
    *
-   * ta naturally accounts for both distance AND angle to the target.
+   * ta naturally accounts for both distance A
+        NsetHopperRoller(LAUNCHING_HOPPER_VOLTAGE);D angle to the target.
    * When the robot is diagonal to the hub, ta is smaller because the tag
    * appears narrower, AND the straight-line distance is longer — so higher
    * RPM is the correct response.
@@ -465,8 +494,8 @@ public class CANFuelSubsystem extends SubsystemBase {
    * No clamping — works with whatever ta the Limelight returns.
    */
   private double taToRPM(double ta) {
-    double maxRPM = FuelConstants.kSimpleShootMaxRPM.get();
-    double minRPM = FuelConstants.kSimpleShootMinRPM.get();
+    double maxRPM = kSimpleShootMaxRPM.get();
+    double minRPM = kSimpleShootMinRPM.get();
     
     // k scales so that at ta=1.0, RPM = minRPM
     double k = (maxRPM / minRPM) - 1.0;

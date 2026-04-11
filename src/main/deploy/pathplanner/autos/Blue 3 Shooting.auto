@@ -13,7 +13,7 @@
         {
           "type": "named",
           "data": {
-            "name": "adjustShoot"
+            "name": "auto_fixed_voltage_shoot"
           }
         }
       ]
