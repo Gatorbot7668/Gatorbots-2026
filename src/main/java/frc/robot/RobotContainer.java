@@ -77,7 +77,7 @@ public class RobotContainer
         () -> MathUtil.applyDeadband(m_driverXbox.getLeftX() * -1, OperatorConstants.LEFT_X_DEADBAND),
         () -> MathUtil.applyDeadband(m_driverXbox.getHID().getRawAxis(2) * -1, OperatorConstants.RIGHT_X_DEADBAND),
         () -> false
-    );
+    ).withName("driveFieldOriented");
 
     // Robot-oriented drive (left bumper)
     Command driveRobotOriented = m_drivebase.driveRobotRelativeCommand(
@@ -85,7 +85,7 @@ public class RobotContainer
         () -> MathUtil.applyDeadband(m_driverXbox.getLeftX() * -1, OperatorConstants.LEFT_X_DEADBAND),
         () -> MathUtil.applyDeadband(m_driverXbox.getHID().getRawAxis(2) * -1, OperatorConstants.RIGHT_X_DEADBAND),
         () -> false
-    );
+    ).withName("driveRobotOriented");
     addCommandToDashboard(driveRobotOriented);
 
     
@@ -172,7 +172,7 @@ public class RobotContainer
     m_secondaryDriverXbox.povRight().whileTrue(m_fuel.adjustingShootSimple(m_vision));
 
     // D-pad Left = PID test (all 3 motors at shooting RPM using closed-loop PID)
-    m_secondaryDriverXbox.povLeft().whileTrue(m_fuel.testPID());
+    m_secondaryDriverXbox.povLeft().whileTrue(m_fuel.shoot_testPID());
 
    
 ////////// CHECK IF WE WANT THIS
@@ -214,6 +214,20 @@ public class RobotContainer
     for (int i = 0; i < 6; i++) {
       SmartDashboard.putNumber("joystick/raw-axis-" + i, m_driverXbox.getHID().getRawAxis(i));
     }
+
+    // Show whether the robot is currently in field-oriented mode
+    Command currentDriveCommand = m_drivebase.getCurrentCommand();
+    String cmdName = currentDriveCommand != null ? currentDriveCommand.getName() : "none";
+    SmartDashboard.putString("Drive/currentCommand", cmdName);
+    
+    Command defaultCmd = m_drivebase.getDefaultCommand();
+    String defaultName = defaultCmd != null ? defaultCmd.getName() : "none";
+    SmartDashboard.putString("Drive/defaultCommand", defaultName);
+    
+    boolean isFieldOriented = cmdName.contains("FieldOriented") || cmdName.contains("fieldOriented")
+        || (currentDriveCommand == defaultCmd && defaultName.contains("FieldOriented"))
+        || (currentDriveCommand == defaultCmd && defaultName.contains("fieldOriented"));
+    SmartDashboard.putBoolean("Drive/isFieldOriented", isFieldOriented);
 
     SmartDashboard.putNumber("pose/x", m_drivebase.getPose().getX());
     SmartDashboard.putNumber("pose/y", m_drivebase.getPose().getY());

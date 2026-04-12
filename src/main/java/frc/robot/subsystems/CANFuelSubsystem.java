@@ -113,7 +113,7 @@ public class CANFuelSubsystem extends SubsystemBase {
   public void setLauncherRPM(double rpm) {
     launcherTargetRPM = rpm;
     launcherPIDEnabled = true;
-    launcherPIDController.reset(); // clear accumulated I-term from previous run
+    //launcherPIDController.reset(); // clear accumulated I-term from previous run
   }
 
   /**
@@ -122,7 +122,7 @@ public class CANFuelSubsystem extends SubsystemBase {
   public void setFeederRPM(double rpm) {
     feederTargetRPM = rpm;
     feederPIDEnabled = true;
-    feederPIDController.reset();
+    //feederPIDController.reset();
   }
 
   /**
@@ -131,7 +131,7 @@ public class CANFuelSubsystem extends SubsystemBase {
   public void setHopperRPM(double rpm) {
     hopperTargetRPM = rpm;
     hopperPIDEnabled = true;
-    hopperPIDController.reset();
+   // hopperPIDController.reset();
   }
 
   
@@ -231,12 +231,13 @@ public class CANFuelSubsystem extends SubsystemBase {
   public Command shoot_testPID(){
     return new SequentialCommandGroup(
       new InstantCommand(() -> 
-      setLauncherRPM(voltageToRPM(AUTO_LAUNCHER_VOLTAGE))), 
+      setLauncherRPM(voltageToRPM(LAUNCHING_LAUNCHER_VOLTAGE))), 
       new WaitCommand(1),
-      Commands.run(()->{
+      new InstantCommand(()->{
         setFeederRPM(voltageToRPM(LAUNCHING_FEEDER_VOLTAGE));
         setHopperRPM(voltageToRPM(LAUNCHING_HOPPER_VOLTAGE));
-      })
+      }),
+      Commands.run(() -> {})  // keep running until button released
       )
       .finallyDo(() -> stop());
   }
@@ -316,7 +317,8 @@ public class CANFuelSubsystem extends SubsystemBase {
         SmartDashboard.putNumber("ShooterTest/currentTA", ta);
         
         // Start launcher only
-        setLauncherRPM(launcherTargetRPM);
+        //setLauncherRPM(launcherTargetRPM);
+        setIntakeLauncherRoller(rpmToVoltage(launcherTargetRPM));
       }),
 
       
@@ -335,8 +337,10 @@ public class CANFuelSubsystem extends SubsystemBase {
         SmartDashboard.putNumber("ShooterTest/feederActualRPM", feederEncoder.getVelocity());
         
         // Run motors at their respective target RPMs (reads from TunableNumber each loop)
-        setLauncherRPM(launcherTargetRPM);
-        setFeederRPM(feederTargetRPM);
+        setIntakeLauncherRoller(rpmToVoltage(launcherTargetRPM));
+        //setLauncherRPM(launcherTargetRPM);
+        //setFeederRPM(feederTargetRPM);
+        setFeederRoller(rpmToVoltage(feederTargetRPM));
       })
     ).finallyDo(() -> stop());
   }
@@ -539,11 +543,11 @@ public class CANFuelSubsystem extends SubsystemBase {
     if (launcherPIDEnabled) {
       // Feedforward: estimate the base voltage needed for the target RPM
       // voltage = (targetRPM / freeSpeedRPM) * 12V
-      double launcherFF = (launcherTargetRPM / NEO_VORTEX_FREE_SPEED_RPM) * 12.0;
+      double launcherFF = rpmToVoltage(3500);
       // PID correction: adjust based on error (target - actual)
-      double launcherPIDOutput = launcherPIDController.calculate(launcherActualRPM, launcherTargetRPM);
+      double launcherPIDOutput = launcherPIDController.calculate(launcherActualRPM+launcherFF, launcherTargetRPM);
       // Total voltage = feedforward + PID correction, clamped to [-12, 12]
-      double launcherVoltage = MathUtil.clamp(launcherFF + launcherPIDOutput, -12.0, 12.0);
+      double launcherVoltage = MathUtil.clamp(launcherPIDOutput+launcherFF, -12.0, 12.0);
       intakeLauncherRoller.setVoltage(launcherVoltage);
 
       // Debug: show what the PID is doing
@@ -556,9 +560,9 @@ public class CANFuelSubsystem extends SubsystemBase {
 
     // --- FEEDER PID LOOP ---
     if (feederPIDEnabled) {
-      double feederFF = (feederTargetRPM / NEO_VORTEX_FREE_SPEED_RPM) * 12.0;
+      double feederFF = rpmToVoltage(3500);
       double feederPIDOutput = feederPIDController.calculate(feederActualRPM, feederTargetRPM);
-      double feederVoltage = MathUtil.clamp(feederFF + feederPIDOutput, -12.0, 12.0);
+      double feederVoltage = MathUtil.clamp(feederPIDOutput+feederFF, -12.0, 12.0);
       feederRoller.setVoltage(feederVoltage);
 
       SmartDashboard.putNumber("Shooter/Feeder/targetRPM", feederTargetRPM);
@@ -570,9 +574,9 @@ public class CANFuelSubsystem extends SubsystemBase {
 
     // --- HOPPER PID LOOP ---
     if (hopperPIDEnabled) {
-      double hopperFF = (hopperTargetRPM / NEO_VORTEX_FREE_SPEED_RPM) * 12.0;
+      double hopperFF = rpmToVoltage(2500);
       double hopperPIDOutput = hopperPIDController.calculate(hopperActualRPM, hopperTargetRPM);
-      double hopperVoltage = MathUtil.clamp(hopperFF + hopperPIDOutput, -12.0, 12.0);
+      double hopperVoltage = MathUtil.clamp(hopperPIDOutput+hopperFF, -12.0, 12.0);
       extraHopperRoller.setVoltage(hopperVoltage);
 
       SmartDashboard.putNumber("Shooter/Hopper/targetRPM", hopperTargetRPM);

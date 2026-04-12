@@ -97,25 +97,25 @@ public final class Constants
 
     // Shared PID gains for both launcher AND feeder velocity control (tunable via SmartDashboard)
     // Both motors use the same PID values since they are the same motor type (NEO Vortex)
-    public static final TunableNumber kShooterP  = new TunableNumber("Shooter/PID/kP", 0.05);
-    public static final TunableNumber kShooterI  = new TunableNumber("Shooter/PID/kI", 0.0);
+    public static final TunableNumber kShooterP  = new TunableNumber("Shooter/PID/kP", 0.0017);
+    public static final TunableNumber kShooterI  = new TunableNumber("Shooter/PID/kI", 0.001);
     public static final TunableNumber kShooterD  = new TunableNumber("Shooter/PID/kD", 0.0);
 
     // PID + FF gains for hopper velocity control (tunable via SmartDashboard)
-    public static final TunableNumber kHopperP  = new TunableNumber("Shooter/Hopper/kP", 0.05);
-    public static final TunableNumber kHopperI  = new TunableNumber("Shooter/Hopper/kI", 0.0);
+    public static final TunableNumber kHopperP  = new TunableNumber("Shooter/Hopper/kP", 0.0017);
+    public static final TunableNumber kHopperI  = new TunableNumber("Shooter/Hopper/kI", 0.001);
     public static final TunableNumber kHopperD  = new TunableNumber("Shooter/Hopper/kD", 0.0);
     public static final TunableNumber kHopperFF = new TunableNumber("Shooter/Hopper/kFF", 1.0 / NEO_VORTEX_FREE_SPEED_RPM);
 
     // Voltage values for various fuel operations. These values may need to be tuned
     // based on exact robot construction.
     // See the Software Guide for tuning information
-    public static final double INTAKING_FEEDER_VOLTAGE = -5;
-    public static final double INTAKING_INTAKE_VOLTAGE = 5;
+    public static final double INTAKING_FEEDER_VOLTAGE = -7;
+    public static final double INTAKING_INTAKE_VOLTAGE = 7;
     public static final double INTAKING_HOPPER_VOLTAGE = -8;  // Hopper roller voltage during intake (same direction as feeder)
-    public static final double LAUNCHING_FEEDER_VOLTAGE = 11;
-    public static final double LAUNCHING_LAUNCHER_VOLTAGE = 11;
-    public static final double LAUNCHING_HOPPER_VOLTAGE = 7;
+    public static final double LAUNCHING_FEEDER_VOLTAGE = 8;
+    public static final double LAUNCHING_LAUNCHER_VOLTAGE = 8;
+    public static final double LAUNCHING_HOPPER_VOLTAGE = 6;
     public static final double FERRY_FEEDER_VOLTAGE = 4;
     public static final double FERRY_LAUNCHER_VOLTAGE = 5;
     public static final double SPIN_UP_FEEDER_VOLTAGE = -6;
