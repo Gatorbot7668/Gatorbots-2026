@@ -62,6 +62,12 @@ public final class Constants
     // Maximum speed of the robot in meters per second, used to limit acceleration.
     public final static LinearVelocity kMaxSpeed = MetersPerSecond.of(4);
 
+    // Drive motor WPILib PID gains (runs on roboRIO instead of SparkFlex onboard PID)
+    // These control the drive (wheel speed) motors on each swerve module.
+    public static final TunableNumber kDriveP = new TunableNumber("Swerve/DrivePID/kP", 0.5);
+    public static final TunableNumber kDriveI = new TunableNumber("Swerve/DrivePID/kI", 0.0);
+    public static final TunableNumber kDriveD = new TunableNumber("Swerve/DrivePID/kD", 0.0);
+
     // Drive motor feedforward gains (from SysId characterization).
     // TODO: Run SysId on the real robot and replace these placeholder values!
     //   Use driveCharacterizationSysIdCommand(), then plug in the results here.

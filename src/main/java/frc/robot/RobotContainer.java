@@ -136,7 +136,7 @@ public class RobotContainer
 
     m_drivebase.setDefaultCommand(
         // testMotors);
-    driveRobotOriented);
+    driveFieldOrientedAnglularVelocity);
         // driveRobotOriented);
         // driveFieldOrientedDirectAngle);
         // !RobotBase.isSimulation() ? driveFieldOrientedDirectAngle :
@@ -290,6 +290,9 @@ public class RobotContainer
      // drivebase.driveAtSpeed(-5, 0, 0, false).withTimeout(0.5) );*/
  }
 
+  public void configureForTeleop(){
+     m_drivebase.zeroGyro(); 
+  }
   public void setMotorBrake(boolean brake) {
     m_drivebase.setMotorBrake(brake);
   }

@@ -129,7 +129,9 @@ public class Robot extends LoggedRobot {
       m_autonomousCommand.cancel();
     }
 
-    m_robotContainer.setMotorBrake(true);    
+    m_robotContainer.setMotorBrake(true);
+    m_robotContainer.configureForTeleop();
+
   }
 
   /** This function is called periodically during operator control. */
