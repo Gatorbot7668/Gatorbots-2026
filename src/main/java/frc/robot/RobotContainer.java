@@ -29,6 +29,7 @@ import frc.robot.subsystems.CANFuelSubsystem;
 import frc.robot.subsystems.VisionSubsystem;
 import frc.robot.util.TunableNumber;
 import swervelib.SwerveDriveTest;
+import swervelib.SwerveInputStream;
 import swervelib.SwerveModule;
 import swervelib.parser.PIDFConfig;
 import swervelib.parser.SwerveParser;
@@ -67,6 +68,14 @@ public class RobotContainer
     HttpCamera limelightCam = new HttpCamera("limelight", "http://10.76.68.11:5800/stream.mjpg");
     CameraServer.startAutomaticCapture(limelightCam);
 
+    // --- Auto-zero gyro at startup ---
+    // The robot starts with its front FACING the driver station (toward the drivers).
+    // Field-oriented 0° = facing AWAY from drivers. So our starting heading is 180°.
+    // zeroGyro() sets the current direction as 0°, then resetOdometry tells the robot
+    // "I'm actually at 180°" so field-oriented controls work correctly from the start.
+    m_drivebase.zeroGyro();
+    m_drivebase.resetOdometry(new Pose2d(0, 0, Rotation2d.fromDegrees(180)));
+
     // Field-oriented drive (default)
     NamedCommands.registerCommand("Intake", m_fuel.intake().withTimeout(3));
     NamedCommands.registerCommand("adjustShoot", m_fuel.adjustingShoot(m_vision));
@@ -79,6 +88,14 @@ public class RobotContainer
         () -> false
     ).withName("driveFieldOriented");
 
+    SwerveInputStream swerveInput = SwerveInputStream.of(m_drivebase.getSwerveDrive(),
+        () -> MathUtil.applyDeadband(m_driverXbox.getLeftY() * -1, OperatorConstants.LEFT_Y_DEADBAND),
+        () -> MathUtil.applyDeadband(m_driverXbox.getLeftX() * -1, OperatorConstants.LEFT_X_DEADBAND)).
+        withControllerRotationAxis(m_driverXbox::getRightX).allianceRelativeControl(true);
+
+      Command driveWhileFacing = m_drivebase.driveWhileFacing(swerveInput).withName("driveWhileFacing");
+      addCommandToDashboard(driveWhileFacing);
+
     // Robot-oriented drive (left bumper)
     Command driveRobotOriented = m_drivebase.driveRobotRelativeCommand(
         () -> MathUtil.applyDeadband(m_driverXbox.getLeftY() * -1, OperatorConstants.LEFT_Y_DEADBAND),
@@ -89,9 +106,6 @@ public class RobotContainer
     addCommandToDashboard(driveRobotOriented);
 
     
-    Command zeroGyro = m_drivebase.runOnce(() -> m_drivebase.zeroGyro()).withName("zeroGyro");
-    addCommandToDashboard(zeroGyro);
-
     Command resetOdometrytoAllianceZero = m_drivebase.runOnce(
         () -> m_drivebase.resetOdometry(m_drivebase.invertIfFieldFlipped(new Pose2d(0, 0, new Rotation2d()))))
         .withName("resetOdometrytoAllianceZero");
@@ -143,6 +157,11 @@ public class RobotContainer
         // driveFieldOrientedDirectAngleSim);
         //driveFieldOrient
         //edAnglularVelocity);
+
+    // --- Driver controller: Start button = zero gyro ---
+    // Point the robot's front AWAY from the driver station, then press Start.
+    // This tells the robot "this direction is 0° (field forward)".
+   
   
     // X = Intake
     m_secondaryDriverXbox.a().whileTrue(m_fuel.intake());

@@ -13,15 +13,12 @@ import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import com.pathplanner.lib.path.PathConstraints;
 import com.pathplanner.lib.util.FlippingUtil;
 import com.revrobotics.spark.SparkFlex;
-import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
-import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.math.trajectory.Trajectory;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.util.sendable.Sendable;
@@ -42,6 +39,7 @@ import static edu.wpi.first.units.Units.MetersPerSecond;
 import java.io.File;
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
+import java.util.function.Supplier;
 
 import swervelib.SwerveController;
 import swervelib.SwerveDrive;
@@ -76,13 +74,6 @@ public class SwerveSubsystem extends SubsystemBase {
    * Swerve drive object.
    */
   public final SwerveDrive swerveDrive;
-
-  // WPILib PID controllers for each drive motor (run on the roboRIO at 50Hz in periodic())
-  // These replace the SparkFlex onboard PID, giving us full visibility into error/target/output.
-  private final PIDController[] drivePIDControllers;
-
-  // Module names for telemetry labels
-  private static final String[] MODULE_NAMES = {"FL", "FR", "BL", "BR"};
   /**
    * Initialize {@link SwerveDrive} with the directory provided.
    *
@@ -131,18 +122,6 @@ public class SwerveSubsystem extends SubsystemBase {
 
     // Example of how to change a single motor's PID config
     // swerveDrive.getModules()[idx].configuration.anglePIDF = new PIDFConfig(0.1, 0, 0);
-
-    // --- WPILib Drive PID Controllers (one per module) ---
-    // These run on the roboRIO at 50Hz in periodic(), replacing the SparkFlex onboard PID.
-    // This gives us full visibility into PID error, target, and output on SmartDashboard/Elastic.
-    int moduleCount = swerveDrive.getModules().length;
-    drivePIDControllers = new PIDController[moduleCount];
-    for (int i = 0; i < moduleCount; i++) {
-      drivePIDControllers[i] = new PIDController(
-          SwerveConstants.kDriveP.get(),
-          SwerveConstants.kDriveI.get(),
-          SwerveConstants.kDriveD.get());
-    }
 
     SmartDashboard.putData("swerve/subsystem", this);
   }
@@ -281,7 +260,7 @@ public class SwerveSubsystem extends SubsystemBase {
     // resetOdometry tell the robot to forget where it believes is its current position and instead believe that it is at the provided pose, which is the pose that it detects currently. 
       .andThen(driveToPose(pose));
   }
-
+//
   // ! CHANGE cleanup
   // ! Also changed z to omega since the z axis is up/down
   // ! To my knowledge, frc robots can't fly :|
@@ -305,7 +284,7 @@ public class SwerveSubsystem extends SubsystemBase {
           yVelocitySupplier.getAsDouble() * swerveDrive.getMaximumChassisVelocity()),
         omegaSupplier.getAsDouble() * swerveDrive.getMaximumChassisAngularVelocity(),
         false,
-        true); // open-loop: WPILib PID in periodic() handles drive motor control
+        false);
     });    
 
   }
@@ -323,18 +302,11 @@ public class SwerveSubsystem extends SubsystemBase {
    * @return {@link Command}
    */
   public Command driveWhileFacing(
-      DoubleSupplier xVelocitySupplier, 
-      DoubleSupplier yVelocitySupplier, 
-      Rotation2d rotation) {
+      Supplier<ChassisSpeeds> velocity) {
     swerveDrive.setHeadingCorrection(true); // Normally you would want heading correction for this kind of control.
     return run(() -> {
       driveFieldOriented(
-        swerveDrive.swerveController.getTargetSpeeds(
-          xVelocitySupplier.getAsDouble(),
-          yVelocitySupplier.getAsDouble(),
-          rotation.getRadians(),
-          swerveDrive.getOdometryHeading().getRadians(),
-          swerveDrive.getMaximumChassisVelocity()));
+          velocity.get());
     });
   }
 
@@ -515,63 +487,9 @@ public class SwerveSubsystem extends SubsystemBase {
 
   @Override
   public void periodic(){
-    // Should be called every loop for synchronizing relative/absolute encoders
+    // ! CHANGE
+    // Should be called every loop for syncronizing relative/absolute encoders
     swerveDrive.updateOdometry();
-
-    // --- WPILib Drive PID Loop ---
-    // YAGSL is set to open-loop (isOpenLoop=true in drive commands), so it sends
-    // a simple proportional voltage to the drive motors. We override that voltage
-    // here with our own PID + feedforward calculation, and publish telemetry.
-    SwerveModule[] modules = swerveDrive.getModules();
-    SwerveModuleState[] desiredStates = SwerveDriveTelemetry.desiredStatesObj;
-
-    if (desiredStates != null) {
-      SimpleMotorFeedforward ff = new SimpleMotorFeedforward(
-          SwerveConstants.kDriveS.get(),
-          SwerveConstants.kDriveV.get(),
-          SwerveConstants.kDriveA.get());
-
-      for (int i = 0; i < modules.length && i < desiredStates.length; i++) {
-        if (desiredStates[i] == null) continue;
-
-        double targetSpeed = desiredStates[i].speedMetersPerSecond;   // m/s
-        double actualSpeed = modules[i].getDriveMotor().getVelocity(); // m/s (encoder velocity)
-
-        // PID correction based on velocity error
-        double pidOutput = drivePIDControllers[i].calculate(actualSpeed, targetSpeed);
-
-        // Feedforward: base voltage estimate for the target speed
-        double feedforward = ff.calculate(targetSpeed);
-
-        // Total voltage = FF + PID, clamped to battery voltage
-        double totalVoltage = MathUtil.clamp(feedforward + pidOutput, -12.0, 12.0);
-
-        // Send voltage directly to the drive motor, overriding YAGSL's open-loop value
-        ((SparkFlex) modules[i].getDriveMotor().getMotor()).setVoltage(totalVoltage);
-
-        // Publish telemetry for each module
-        String name = (i < MODULE_NAMES.length) ? MODULE_NAMES[i] : ("M" + i);
-        SmartDashboard.putNumber("Swerve/" + name + "/Drive/targetMPS", targetSpeed);
-        SmartDashboard.putNumber("Swerve/" + name + "/Drive/actualMPS", actualSpeed);
-        SmartDashboard.putNumber("Swerve/" + name + "/Drive/errorMPS", targetSpeed - actualSpeed);
-        SmartDashboard.putNumber("Swerve/" + name + "/Drive/pidOutput", pidOutput);
-        SmartDashboard.putNumber("Swerve/" + name + "/Drive/ff", feedforward);
-        SmartDashboard.putNumber("Swerve/" + name + "/Drive/totalVoltage", totalVoltage);
-      }
-    }
-  }
-
-  /**
-   * Reconfigure the WPILib drive PID gains on all modules.
-   * Called from RobotContainer.robotPeriodic() when TunableNumbers change.
-   */
-  public void reconfigureDrivePID() {
-    for (PIDController pid : drivePIDControllers) {
-      pid.setPID(
-          SwerveConstants.kDriveP.get(),
-          SwerveConstants.kDriveI.get(),
-          SwerveConstants.kDriveD.get());
-    }
   }
 
   // ! CHANGE you should use this to pass limelight estimated positions for odometry
@@ -748,6 +666,10 @@ public class SwerveSubsystem extends SubsystemBase {
   public SwerveDriveConfiguration getSwerveDriveConfiguration()
   {
     return swerveDrive.swerveDriveConfiguration;
+  }
+
+  public SwerveDrive getSwerveDrive() {
+    return swerveDrive;
   }
 
   /**
